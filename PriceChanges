@@ -157,3 +157,46 @@ if (this.isValidPrice(price)) {
 </div>
 
 {{ field|add_attrs:":index=lines.indexOf(line); v-model=lines; :readonly=['product_group','product_name'].includes('{{ field.name }}'); :class=['form-control form-control-sm', ['product_group','product_name'].includes('{{ field.name }}') ? 'form-control-plaintext text-muted' : '']; @change=handle_change_form(line, lines.indexOf(line), $event); @paste.prevent=paste_from_excel(lines,lines.indexOf(line), $event);" }}
+
+class TicketLineForm(EnhancedModelForm):
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        # ✅ Readonly fields
+        readonly_fields = ["product_group", "product_name"]
+
+        for field_name in readonly_fields:
+            if field_name in self.fields:
+                self.fields[field_name].disabled = True
+                self.fields[field_name].widget = TextInput(
+                    attrs={
+                        "class": "form-control form-control-sm",
+                        "style": "max-width: 70px;" if field_name == "product_group" else "min-width: 180px;"
+                    }
+                )
+
+        # ✅ Mercury field (medium width)
+        if "mercury" in self.fields:
+            self.fields["mercury"].widget.attrs.update({
+                "class": "form-control form-control-sm",
+                "style": "max-width: 110px;"
+            })
+
+        # ✅ All price fields → compact (6-digit visibility)
+        price_fields = [
+            "pelp_price", "cee_price", "cea_price",
+            "cme_price", "csa_price", "infl_price",
+            "tp_price", "rsp_baseline", "rsp_price"
+        ]
+
+        for field in price_fields:
+            if field in self.fields:
+                self.fields[field].widget.attrs.update({
+                    "class": "form-control form-control-sm text-end",
+                    "style": "max-width: 90px;"
+                })
+
+    class Meta:
+        model = TicketLine
+        exclude = ["ticket_number", "model_budget"]
