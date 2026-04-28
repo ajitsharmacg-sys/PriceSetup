@@ -200,3 +200,76 @@ class TicketLineForm(EnhancedModelForm):
     class Meta:
         model = TicketLine
         exclude = ["ticket_number", "model_budget"]
+
+
+
+
+
+
+
+
+
+
+
+
+from django.forms import TextInput, NumberInput
+from pricerequest.models import TicketLine
+from common.forms import EnhancedModelForm
+
+
+class TicketLineForm(EnhancedModelForm):
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        # ✅ Readonly fields
+        readonly_fields = ["product_group", "product_name"]
+
+        for field_name in readonly_fields:
+            if field_name in self.fields:
+                self.fields[field_name].disabled = True
+
+                # 👉 Product group small, product name wider
+                if field_name == "product_group":
+                    self.fields[field_name].widget = TextInput(attrs={
+                        "class": "form-control form-control-sm text-center",
+                        "style": "width: 60px;"
+                    })
+                else:
+                    self.fields[field_name].widget = TextInput(attrs={
+                        "class": "form-control form-control-sm",
+                        "style": "width: 180px;"
+                    })
+
+        # ✅ Mercury field
+        if "mercury" in self.fields:
+            self.fields["mercury"].widget.attrs.update({
+                "class": "form-control form-control-sm",
+                "style": "width: 110px;"
+            })
+
+        # ✅ Price fields (compact, fixed width)
+        price_fields = [
+            "pelp_price",
+            "cee_price",
+            "cea_price",
+            "cme_price",
+            "csa_price",
+            "infl_price",
+            "tp_price",
+            "rsp_baseline",
+            "rsp_price"
+        ]
+
+        for field in price_fields:
+            if field in self.fields:
+                self.fields[field].widget = NumberInput(attrs={
+                    "class": "form-control form-control-sm text-end",
+                    "style": "width: 80px;",   # 👈 perfect 6-digit view
+                    "step": "0.01",
+                    "inputmode": "decimal"
+                })
+
+    class Meta:
+        model = TicketLine
+        exclude = ["ticket_number", "model_budget"]
