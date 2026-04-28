@@ -101,3 +101,59 @@ if (this.isValidPrice(price)) {
     );
 }
 ========================================================================
+
+<div class="table-responsive" style="max-height: 350px;">
+    <table class="table table-sm table-bordered table-hover align-middle">
+
+        <!-- Header -->
+        <thead class="table-light sticky-top">
+            <tr>
+                <th>#</th>
+                {% for field in ticket_line_form.visible_fields %}
+                    <th class="small text-nowrap">{{ field.label }}</th>
+                {% endfor %}
+                <th></th>
+            </tr>
+        </thead>
+
+        <!-- Body -->
+        <tbody>
+            <tr v-for="line in lines">
+                <td>[[ lines.indexOf(line) + 1 ]]</td>
+
+                {% for field in ticket_line_form.visible_fields %}
+                <td class="text-nowrap">
+                    {{ field|add_attrs:`
+                        :index=lines.indexOf(line);
+                        v-model=lines;
+                        :readonly="['product_group','product_name'].includes('${field.name}')";
+                        :class="[
+                            'form-control form-control-sm',
+                            ['product_group','product_name'].includes('${field.name}')
+                            ? 'form-control-plaintext text-muted'
+                            : ''
+                        ]";
+                        @change=handle_change_form(line, lines.indexOf(line), $event);
+                        @paste.prevent=paste_from_excel(lines,lines.indexOf(line), $event);
+                    ` }}
+                </td>
+                {% endfor %}
+
+                <td>
+                    <button class="btn btn-danger btn-sm" @click="delete_line(line)">
+                        <i class="bi bi-x"></i>
+                    </button>
+                </td>
+            </tr>
+        </tbody>
+    </table>
+</div>
+
+<!-- Add Line -->
+<div class="mt-2">
+    <button class="btn btn-primary btn-sm" @click="create_line()">
+        <i class="bi bi-plus"></i> Add Line
+    </button>
+</div>
+
+
