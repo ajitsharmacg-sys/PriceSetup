@@ -273,3 +273,13 @@ class TicketLineForm(EnhancedModelForm):
     class Meta:
         model = TicketLine
         exclude = ["ticket_number", "model_budget"]
+
+
+<div class="td bg-secondary text-white text-center align-middle small">
+    <span v-if="'{{ field.name }}' === 'product_group'">
+        Product<br>Group
+    </span>
+    <span v-else>
+        {{ field.label }}
+    </span>
+</div>
