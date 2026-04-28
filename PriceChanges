@@ -8,3 +8,96 @@ format_label(value) {
 [[ name === 'announcement_choice'
     ? format_label(get_value(selected_ticket, name))
     : get_value(selected_ticket, name) ]]
+
+class UserTypeChoices(models.TextChoices):
+    DRBG = ("DRBG", "ER")   # value stays DRBG, label becomes ER
+    ITCG = ("ITCG", "ITCG")
+
+=========================================================================
+
+influencer_start_date = models.DateField(
+    blank=True, null=True, verbose_name="Influencer Start Date"
+)
+
+influencer_price = models.DecimalField(
+    max_digits=8, decimal_places=2, null=True, blank=True, verbose_name="Influencer Price"
+)
+
+
+python manage.py makemigrations
+python manage.py migrate
+
+auto_render_columns: [
+    "subject",
+    "elp_start_date",
+    "cif_start_date",
+    "tp_launch_date",
+    "ecom_launch_date",
+    "influencer_start_date",  // ✅ ADD THIS
+    "announcement_choice"
+]
+
+line_auto_render_columns: [
+    "product_group",
+    "product_name",
+    "mercury",
+    "pelp_price",
+    "cee_price",
+    "cea_price",
+    "cme_price",
+    "csa_price",
+    "tp_price",
+    "influencer_price",  // ✅ ADD THIS
+    "rsp_baseline",
+    "rsp_price"
+]
+
+Add mapping in pricelist_dict
+"influencer": "NL ABX Influencer Price List (GLB)"
+
+Update priceMap
+const priceMap = [
+    { key: "pelp_price", dictKey: "elp", ticketKey: "elp_start_date" },
+    { key: "cee_price", dictKey: "cee", ticketKey: "cif_start_date" },
+    { key: "cea_price", dictKey: "cea", ticketKey: "cif_start_date" },
+    { key: "cme_price", dictKey: "cme", ticketKey: "cif_start_date" },
+    { key: "csa_price", dictKey: "csa", ticketKey: "cif_start_date" },
+    { key: "tp_price", dictKey: "tp", ticketKey: "tp_launch_date" },
+
+    // ✅ NEW
+    { key: "influencer_price", dictKey: "influencer", ticketKey: "influencer_start_date" }
+];
+
+=====================================================================WEB EDI Empty removal========================
+
+Update your loop inside create_webadi_template:
+
+if (price !== "" && price !== null) {  to 
+
+
+isValidPrice(price) {
+    if (price === null || price === "") return false;
+    return Number(price) > 0;
+}
+
+
+if (this.isValidPrice(price)) {
+    const valid = this.validate_pricelist(mercury, this.pricelist_dict[dictKey]);
+
+    if (valid) {
+        this.update_webadi(
+            this.pricelist_dict[dictKey],
+            mercury,
+            valid["ln_start_date_active"],
+            ticketKey
+        );
+    }
+
+    this.insert_webadi(
+        this.pricelist_dict[dictKey],
+        mercury,
+        price,
+        ticketKey
+    );
+}
+========================================================================
