@@ -156,4 +156,4 @@ if (this.isValidPrice(price)) {
     </button>
 </div>
 
-{{ field|add_attrs:":index=lines.indexOf(line); v-model=lines; :readonly=['product_group','product_name'].includes(field.name); :class=['form-control form-control-sm', ['product_group','product_name'].includes(field.name) ? 'form-control-plaintext text-muted' : '']; @change=handle_change_form(line, lines.indexOf(line), $event); @paste.prevent=paste_from_excel(lines,lines.indexOf(line), $event);" }}
+{{ field|add_attrs:":index=lines.indexOf(line); v-model=lines; :readonly=['product_group','product_name'].includes('{{ field.name }}'); :class=['form-control form-control-sm', ['product_group','product_name'].includes('{{ field.name }}') ? 'form-control-plaintext text-muted' : '']; @change=handle_change_form(line, lines.indexOf(line), $event); @paste.prevent=paste_from_excel(lines,lines.indexOf(line), $event);" }}
