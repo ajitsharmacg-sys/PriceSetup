@@ -1,0 +1,10 @@
+format_label(value) {
+    if (!value) return "";
+    return value.replaceAll("DRBG", "ER");
+}
+
+[[ format_label(status.status) ]]
+
+[[ name === 'announcement_choice'
+    ? format_label(get_value(selected_ticket, name))
+    : get_value(selected_ticket, name) ]]
