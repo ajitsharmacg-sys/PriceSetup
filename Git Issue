@@ -2,6 +2,8 @@ ssh-keygen -t ed25519 -C "your-email@example.com"
 
 git config --global core.sshCommand "ssh -i ~/.ssh/id_ed25519"
 
+ssh -i $env:USERPROFILE\.ssh\id_ed25519 -T git@bitbucket.org
+
 eval "$(ssh-agent -s)"
 
 Start-Service ssh-agent
