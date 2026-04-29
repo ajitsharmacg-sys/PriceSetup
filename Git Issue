@@ -1,5 +1,20 @@
 ssh-keygen -t ed25519 -C "your-email@example.com"
 
+
+
+
+
+git clone --depth 1 git@bitbucket.org:canon-europe/itcg_azure_apps.git
+git clone --depth 1 https://bitbucket.org/canon-europe/itcg_azure_apps.git
+
+cd itcg_azure_apps
+git fetch --unshallow
+
+git config --global http.postBuffer 524288000
+git config --global core.compression 0
+git config --global http.lowSpeedLimit 0
+git config --global http.lowSpeedTime 999999
+
 git config --global core.sshCommand "ssh -i ~/.ssh/id_ed25519"
 
 ssh -i $env:USERPROFILE\.ssh\id_ed25519 -T git@bitbucket.org
