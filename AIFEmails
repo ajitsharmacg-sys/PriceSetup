@@ -1,0 +1,41 @@
+def append_sales_ops_cc(cc_mail):
+    extra = ["cci.pricing@canon-europe.com"]
+
+    if not cc_mail:
+        return extra
+
+    if isinstance(cc_mail, str):
+        return [cc_mail] + extra
+
+    return list(set(cc_mail + extra))  # avoid duplicates
+
+if new_status == AifStatusChoices.CLOSED:
+    final_cc = append_sales_ops_cc(cc_mail)
+
+    send_email_to_group(
+        to=Group.objects.get(name=SALES_OPS_USER),
+        subject=get_aif_email_subject(aif, new_status, "validated"),
+        body=get_aif_email_body(aif, new_status, link, comment, "validated"),
+        cc=final_cc
+    )
+
+    send_email_to_group(
+        to=Group.objects.get(name=SALES_OPS_USER),
+        subject=get_aif_email_subject(aif, new_status, "completed"),
+        body=get_aif_email_body(aif, new_status, link, comment, "completed"),
+        cc=final_cc
+    )
+
+
+
+if new_status == AifStatusChoices.COMMERCIALLY_APPROVED:
+    final_cc = append_sales_ops_cc(cc_mail)
+
+    send_email_to_group(
+        to=Group.objects.get(name=SALES_OPS_USER),
+        subject=get_aif_email_subject(aif, new_status),
+        body=get_aif_email_body(aif, new_status, link, comment),
+        cc=final_cc
+    )
+
+sales_ops_group = Group.objects.get(name=SALES_OPS_USER)
