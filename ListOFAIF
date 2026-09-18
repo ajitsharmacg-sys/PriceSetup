@@ -1,0 +1,760 @@
+{% load static %}
+{% load common_tags %}
+
+{% block list_of_aifs %}
+
+<section
+    id="list_of_aifs"
+    class="screen-navigation"
+    data-screen-name="AIFs"
+>
+    <div v-if="current_screen === 'list_of_aifs'">
+
+        <django-paged-table
+            api_endpoint="/aifmgmt/api/v1/aif/"
+            :columns="columns"
+            ordering="-meta_edited_date"
+            @export-excel="(items) => { export_to_excel(items); }"
+            :init_query_filter="query_filter"
+            v-model:data_refresh_trigger="update_triggered"
+            title="List of AIFs"
+            :filter_items="filter_items"
+            :custom_format="custom_format"
+        >
+
+            <!-- ADD -->
+            <template #header>
+                <add-button
+                    v-if="
+                        user_role.includes('AIF App NSO User')
+                        || user_role.includes(admin_role)
+                    "
+                    @click="
+                        selected_aif = empty_aif();
+                        navigate('aif_app', null);
+                    "
+                >
+                </add-button>
+            </template>
+
+
+            <!-- ACTIONS -->
+            <template #actions="actionProps">
+
+                <div class="btn-group">
+
+                    <!-- VIEW -->
+                    <view-button
+                        :size="20"
+                        @click="
+                            select_aif_and_navigate(
+                                actionProps,
+                                'aif_view'
+                            );
+                            checked_lines = [];
+                        "
+                    >
+                    </view-button>
+
+
+                    <!-- EDIT -->
+                    <edit-button
+                        :size="20"
+                        v-if="
+                            ['DRAFT', 'INVALID'].includes(
+                                actionProps.aif_status
+                            )
+                            &&
+                            (
+                                user_role.includes('AIF App NSO User')
+                                ||
+                                user_role.includes(admin_role)
+                            )
+                        "
+                        @click="
+                            select_aif_and_navigate(
+                                actionProps,
+                                'aif_app',
+                                'edit'
+                            )
+                        "
+                    >
+                    </edit-button>
+
+
+                    <!-- TEMPLATE -->
+                    <template-button
+                        :size="20"
+                        v-if="
+                            user_role.includes('AIF App NSO User')
+                            ||
+                            user_role.includes(admin_role)
+                        "
+                        @click="
+                            select_aif_and_navigate(
+                                actionProps,
+                                'aif_app',
+                                'template'
+                            )
+                        "
+                    >
+                    </template-button>
+
+
+                    <!-- SHAREPOINT -->
+                    <a
+                        v-if="actionProps.link"
+                        :href="actionProps.link"
+                        target="_blank"
+                        title="Sharepoint"
+                        class="btn btn-white btn-sm border d-flex align-items-center"
+                    >
+                        <img
+                            src="{% static 'common/img/sharepoint.svg' %}"
+                            class="ml-2"
+                            alt="Sharepoint"
+                            width="18"
+                            height="18"
+                        />
+                    </a>
+
+
+                    <!-- DELETE -->
+                    <delete-button
+                        :size="20"
+                        v-if="
+                            ['DRAFT', 'INVALID'].includes(
+                                actionProps.aif_status
+                            )
+                            &&
+                            (
+                                user_role.includes('AIF App NSO User')
+                                ||
+                                user_role.includes(admin_role)
+                            )
+                        "
+                        @delete-confirm="
+                            selected_aif = actionProps;
+                            delete_aif(actionProps);
+                        "
+                    >
+                    </delete-button>
+
+                </div>
+
+            </template>
+
+        </django-paged-table>
+
+
+        <notification-dialog
+            v-model="show_notification_dialog"
+            :message="notification_message"
+        >
+        </notification-dialog>
+
+    </div>
+</section>
+
+
+<script type="module">
+
+import {
+    postData,
+    loadOptions,
+    deleteRequest
+} from "{% static 'common/modules/common.js' %}";
+
+import {
+    utils,
+    writeFile
+} from "{% static 'common/modules/xlsx.mjs' %}";
+
+import * as vuejs_components
+    from "{% static 'common/modules/components.js' %}";
+
+
+const list_of_aifs = Vue.createApp({
+
+    delimiters: ['[[', ']]'],
+
+    data() {
+
+        return {
+
+            current_screen: current_screen,
+
+            nav_context: nav_context,
+
+            dialog: dialog,
+
+            search_text: null,
+
+            query_filter: "",
+
+            selected_aif: selected_aif,
+
+            checked_lines: checked_lines,
+
+            aif_approvers: aif_approvers,
+
+            admin_role: ADMIN_ROLE,
+
+            user_role: USER_ROLE,
+
+            role_map: ROLE_MAP,
+
+            options: options,
+
+            update_triggered: false,
+
+            show_notification_dialog: false,
+
+            notification_message: "",
+
+
+            /*
+             * Columns displayed by django-paged-table.
+             *
+             * aif_status now comes directly from
+             * AifReadSerializer.
+             */
+            columns: [
+                "aif_id",
+                "meta_created_date",
+                "meta_created_by",
+                "nso",
+                "start_date",
+                "end_date",
+                "aif_status",
+            ],
+
+        };
+
+    },
+
+
+    created() {
+
+        /*
+         * Keep existing AIF option loading.
+         */
+        loadOptions(api_endpoints.aif)
+            .then(response => {
+
+                if (!response.ok) {
+                    return Promise.reject(response);
+                }
+
+                return response.json();
+
+            })
+            .then(data => {
+
+                if (data.actions?.POST) {
+                    this.options["aif"] = data.actions.POST;
+                }
+
+            })
+            .catch(error_response => {
+
+                this.display_error(
+                    error_response,
+                    "Failed to load AIF options."
+                );
+
+            });
+
+
+        /*
+         * Keep existing approver loading.
+         */
+        this.load_aif_approvers();
+
+    },
+
+
+    computed: {
+
+        /*
+         * Same filtering architecture as PreDisclosure.
+         */
+        filter_items() {
+
+            const res = [];
+
+            res.push({
+                label: "ALL",
+                expression: "&aif_status="
+            });
+
+            for (const status of [
+                "DRAFT",
+                "PLANNED",
+                "COMMERCIALLY_APPROVED",
+                "INVALID",
+                "AWAITING_VALIDATION",
+                "CLOSED"
+            ]) {
+
+                res.push({
+                    label: status,
+                    expression:
+                        "&aif_status=" + status,
+                });
+
+            }
+
+            return res;
+
+        },
+
+
+        /*
+         * Same status formatting approach as PreDisclosure.
+         */
+        custom_format() {
+
+            return {
+
+                aif_status: {
+
+                    DRAFT: "text-bg-secondary",
+
+                    PLANNED: "text-bg-warning",
+
+                    COMMERCIALLY_APPROVED:
+                        "text-bg-warning",
+
+                    INVALID: "text-bg-danger",
+
+                    AWAITING_VALIDATION:
+                        "text-bg-warning",
+
+                    CLOSED: "text-bg-success",
+
+                },
+
+            };
+
+        },
+
+    },
+
+
+    methods: {
+
+
+        display_error(
+            error_response,
+            alternative_message =
+                "Unknown error occurred, please try again or report it to Support Team."
+        ) {
+
+            try {
+
+                const details =
+                    error_response.json();
+
+                details.then(data => {
+
+                    this.dialog
+                        .reset_to_default()
+                        .set_title("Failed")
+                        .set_message(data)
+                        .set_true_action("Close")
+                        .show();
+
+                });
+
+            }
+            catch {
+
+                this.dialog
+                    .reset_to_default()
+                    .set_title("Failed")
+                    .set_message(alternative_message)
+                    .set_true_action("Close")
+                    .show();
+
+            }
+
+        },
+
+
+        empty_aif() {
+
+            return {
+                aif_lines: [],
+                aif_status: [],
+                aif_customer_lines: []
+            };
+
+        },
+
+
+        /*
+         * Kept because it can still be used by
+         * other AIF screens/templates.
+         */
+        get_verbose_name(column) {
+
+            switch (column) {
+
+                case "aif_status":
+                    return "AIF Status";
+
+                default:
+                    return this.options["aif"]?.[column]?.label
+                        ?? column;
+
+            }
+
+        },
+
+
+        get_value(item, key) {
+
+            return item?.[key] ?? "";
+
+        },
+
+
+        /*
+         * Keep existing status formatting method.
+         */
+        status_format(status) {
+
+            switch (status) {
+
+                case "PLANNED":
+                    return "badge rounded-pill text-bg-warning";
+
+                case "COMMERCIALLY_APPROVED":
+                    return "badge rounded-pill text-bg-warning";
+
+                case "INVALID":
+                    return "badge rounded-pill text-bg-danger";
+
+                case "AWAITING_VALIDATION":
+                    return "badge rounded-pill text-bg-warning";
+
+                case "CLOSED":
+                    return "badge rounded-pill text-bg-success";
+
+                default:
+                    return "badge rounded-pill text-bg-secondary";
+
+            }
+
+        },
+
+
+        format_status_label(status) {
+
+            if (!status) {
+                return "";
+            }
+
+            return status.replaceAll("_", " ");
+
+        },
+
+
+        /*
+         * Existing AIF search is retained.
+         *
+         * django-paged-table normally handles the
+         * API request itself, so this method should
+         * only be retained if it is called elsewhere.
+         */
+        search_aif() {
+
+            if (this.search_text) {
+
+                this.query_filter =
+                    "&search="
+                    + this.search_text.trim().toUpperCase();
+
+            }
+            else {
+
+                this.query_filter = "";
+
+            }
+
+        },
+
+
+        /*
+         * Existing AIF approver logic.
+         */
+        async load_aif_approvers() {
+
+            fetch(api_endpoints.aif_approvers)
+
+                .then(response =>
+                    response.json()
+                )
+
+                .then(data => {
+
+                    this.aif_approvers = data;
+
+                })
+
+                .catch(error_response => {
+
+                    this.display_error(
+                        error_response
+                    );
+
+                });
+
+        },
+
+
+        /*
+         * Delete logic remains unchanged.
+         */
+        delete_aif(item) {
+
+            deleteRequest(
+                api_endpoints.aif
+                + item.aif_id
+                + "/"
+            )
+
+            .then(response => {
+
+                if (response.ok) {
+                    return response;
+                }
+
+                return Promise.reject(response);
+
+            })
+
+            .then(() => {
+
+                this.update_triggered = true;
+
+                this.dialog
+                    .reset_to_default()
+                    .set_title("Success")
+                    .set_message(
+                        "Selected AIF request has been deleted."
+                    )
+                    .set_true_action("Close")
+                    .show();
+
+            })
+
+            .catch(error_response => {
+
+                this.display_error(
+                    error_response
+                );
+
+            });
+
+        },
+
+
+        /*
+         * Existing navigation logic retained.
+         */
+        navigate(id, context = null) {
+
+            this.nav_context.context = context;
+
+            this.current_screen = id;
+
+        },
+
+
+        /*
+         * Existing AIF selection/loading logic retained.
+         *
+         * django-paged-table gives us the complete
+         * row as actionProps.
+         */
+        async select_aif_and_navigate(
+            item,
+            next_view_id,
+            context = null
+        ) {
+
+            if (context === "template") {
+
+                this.selected_aif = {
+                    ...item,
+                };
+
+            }
+            else {
+
+                this.selected_aif = item;
+
+            }
+
+
+            this.selected_aif["aif_lines"] = null;
+
+            this.selected_aif["aif_customer_lines"] = null;
+
+
+            this.dialog
+                .reset_to_default()
+                .set_title("Progress")
+                .set_message(
+                    "Loading AIF request Info, please wait..."
+                )
+                .set_true_action("Close")
+                .show();
+
+
+            /*
+             * Customer lines
+             */
+            fetch(
+                api_endpoints.aif_customer_line
+                + "?aif="
+                + this.selected_aif.aif_id
+            )
+
+                .then(response =>
+                    response.json()
+                )
+
+                .then(data => {
+
+                    this.selected_aif[
+                        "aif_customer_lines"
+                    ] = data;
+
+                });
+
+
+            /*
+             * AIF lines
+             */
+            fetch(
+                api_endpoints.aif_lines
+                + "?aif="
+                + this.selected_aif.aif_id
+            )
+
+                .then(response => {
+
+                    this.dialog.hide();
+
+                    return response.json();
+
+                })
+
+                .then(data => {
+
+                    this.selected_aif[
+                        "aif_lines"
+                    ] = data;
+
+                    this.navigate(
+                        next_view_id,
+                        context
+                    );
+
+                });
+
+        },
+
+
+        /*
+         * Excel export.
+         *
+         * django-paged-table passes the current
+         * paginated result.
+         */
+        async export_to_excel(items) {
+
+            const export_items =
+                items?.results?.map(item => {
+
+                    const {
+                        link,
+                        meta_edited_by,
+                        aif_lines,
+                        aif_customer_lines,
+                        ...export_item
+                    } = item;
+
+
+                    if (export_item.meta_created_by) {
+
+                        export_item.meta_created_by =
+                            export_item.meta_created_by
+                                .split(",")[0]
+                                .trim();
+
+                    }
+
+
+                    if (export_item.aif_status) {
+
+                        export_item.aif_status =
+                            export_item.aif_status
+                                .replaceAll("_", " ");
+
+                    }
+
+
+                    return export_item;
+
+                });
+
+
+            const workbook =
+                utils.book_new();
+
+            const worksheet =
+                utils.json_to_sheet(export_items);
+
+
+            utils.book_append_sheet(
+                workbook,
+                worksheet,
+                "data"
+            );
+
+
+            writeFile(
+                workbook,
+                "AIFs.xlsx"
+            );
+
+        },
+
+    },
+
+});
+
+
+Object.entries(vuejs_components).forEach(
+    (item) => {
+
+        list_of_aifs.component(
+            item[0],
+            item[1]
+        );
+
+    }
+);
+
+
+list_of_aifs.mount(
+    "#list_of_aifs"
+);
+
+</script>
+
+{% endblock %}
