@@ -13,3 +13,71 @@ from aif.serializers import (
     NSOCurrencyOpUnitConfigSerializer,
     OMEmailsConfigSerializer,
 )
+
+
+class AifLineView(viewsets.ModelViewSet):
+    permission_classes = [IsApplicationUser]
+    queryset = AifLines.objects.all()
+
+    serializer_class = AifLineWriteSerializer
+
+    pagination_class = StandardPagination
+
+    filter_backends = [
+        DjangoFilterBackend,
+        filters.SearchFilter,
+        filters.OrderingFilter,
+    ]
+
+    filterset_fields = {
+        "aif": ["exact"],
+    }
+
+    def get_serializer_class(self):
+        if self.action in [
+            "create",
+            "update",
+            "partial_update",
+            "destroy",
+        ]:
+            return AifLineWriteSerializer
+
+        return AifLineReadSerializer
+
+    def perform_create(self, serializer):
+        instance: AifLines = serializer.save(
+            meta_created_by=self.request.user
+        )
+
+        AifLineStatus.objects.create(
+            aif_line=instance,
+            status=AifLineStatusChoices.DRAFT,
+            meta_created_by=self.request.user,
+        )
+
+    def perform_update(self, serializer):
+        instance = serializer.save(
+            meta_edited_date=timezone.now(),
+            meta_edited_by=self.request.user,
+        )
+
+    def perform_destroy(self, instance):
+        current_status = get_aif_status(
+            instance.aif.aif_id
+        ).status
+
+        if current_status not in [
+            AifStatusChoices.DRAFT,
+            AifStatusChoices.INVALID,
+        ]:
+            raise PermissionDenied(
+                "You can't delete a line when the AIF "
+                "is not in Draft or Invalid status."
+            )
+
+        instance.delete()
+
+
+from common.api_views import StandardPagination
+
+
