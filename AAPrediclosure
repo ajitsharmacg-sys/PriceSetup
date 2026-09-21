@@ -1,3 +1,271 @@
+from rest_framework import serializers
+
+from predisclosure.workflow import get_approver_stage_name
+
+from predisclosure.models import (
+    PreDisclosure,
+    PreDisclosureLine,
+    PreDisclosureStatus,
+    PreDisclosureLineStatus,
+    PreDisclosureApprover,
+    PreDisclosureProduct,
+    PreDisclosureLineStatusChoices,
+    SDALevel,
+)
+
+
+class PreDisclosureProductSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = PreDisclosureProduct
+        fields = "__all__"
+
+
+class SDALevelSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = SDALevel
+        fields = "__all__"
+        read_only_fields = [
+            "meta_created_date",
+            "meta_created_by",
+            "meta_edited_date",
+            "meta_edited_by",
+        ]
+
+
+class PreDisclosureStatusSerializer(serializers.ModelSerializer):
+    meta_created_by = serializers.StringRelatedField(
+        many=False,
+        label="Created By",
+    )
+
+    class Meta:
+        model = PreDisclosureStatus
+        fields = "__all__"
+        read_only_fields = [
+            "meta_created_by",
+            "meta_created_date",
+        ]
+
+
+class PreDisclosureLineStatusSerializer(serializers.ModelSerializer):
+    meta_created_by = serializers.StringRelatedField(
+        many=False,
+        label="Created By",
+    )
+
+    class Meta:
+        model = PreDisclosureLineStatus
+        fields = "__all__"
+        read_only_fields = [
+            "meta_created_by",
+            "meta_created_date",
+        ]
+
+
+class PreDisclosureLineReadSerializer(
+    serializers.ModelSerializer
+):
+    predisclosure_line_status = serializers.SerializerMethodField()
+    previous_status = serializers.SerializerMethodField()
+
+    products = PreDisclosureProductSerializer(
+        many=True,
+        read_only=True,
+    )
+
+    products_display = serializers.SerializerMethodField()
+
+    sda_partner_level_name = serializers.CharField(
+        source="sda_partner_level.name",
+        read_only=True,
+    )
+
+    class Meta:
+        model = PreDisclosureLine
+        fields = "__all__"
+        read_only_fields = [
+            "meta_created_date",
+            "meta_created_by",
+            "meta_edited_date",
+            "meta_edited_by",
+        ]
+
+    def get_products_display(self, obj):
+        return ", ".join(
+            obj.products.values_list(
+                "product_name",
+                flat=True,
+            )
+        )
+
+    def get_predisclosure_line_status(self, obj):
+        latest = (
+            obj.predisclosure_line_status
+            .order_by("-meta_created_date")
+            .first()
+        )
+
+        return latest.status if latest else None
+
+    def get_previous_status(self, obj):
+        # Status history is ordered by creation date.
+        statuses = list(
+            obj.predisclosure_line_status
+            .order_by("-meta_created_date")
+        )
+
+        for index, status in enumerate(statuses):
+
+            if status.status in [
+                PreDisclosureLineStatusChoices.APPROVED,
+                PreDisclosureLineStatusChoices.REJECTED,
+            ]:
+
+                stage_name = ""
+
+                if index + 1 < len(statuses):
+                    previous_status = statuses[index + 1].status
+
+                    stage_name = get_approver_stage_name(
+                        previous_status
+                    )
+
+                decision = status.status.title()
+
+                if stage_name:
+                    stage_name = stage_name.removesuffix(
+                        "Approval"
+                    )
+
+                    return f"{decision} By {stage_name}"
+
+                return decision
+
+        return None
+
+
+class PreDisclosureLineWriteSerializer(
+    serializers.ModelSerializer
+):
+    predisclosure_line_status = (
+        PreDisclosureLineStatusSerializer(
+            many=True,
+            read_only=True,
+        )
+    )
+
+    products = serializers.PrimaryKeyRelatedField(
+        many=True,
+        queryset=PreDisclosureProduct.objects.filter(
+            is_active=True
+        ),
+        required=False,
+    )
+
+    # SDA Level is written using its database ID.
+    sda_partner_level = serializers.PrimaryKeyRelatedField(
+        queryset=SDALevel.objects.filter(
+            is_active=True
+        ),
+        required=False,
+        allow_null=True,
+    )
+
+    class Meta:
+        model = PreDisclosureLine
+        fields = "__all__"
+        read_only_fields = [
+            "meta_created_date",
+            "meta_created_by",
+            "meta_edited_date",
+            "meta_edited_by",
+        ]
+
+
+class PreDisclosureReadSerializer(
+    serializers.ModelSerializer
+):
+    meta_created_by = serializers.StringRelatedField(
+        many=False,
+        label="Created By",
+    )
+
+    predisclosure_status = serializers.SerializerMethodField(
+        label="Status"
+    )
+
+    class Meta:
+        model = PreDisclosure
+        fields = "__all__"
+        read_only_fields = [
+            "predisclosure_id",
+            "link",
+            "meta_created_date",
+            "meta_created_by",
+            "meta_edited_date",
+            "meta_edited_by",
+        ]
+
+    def get_meta_created_by(self, obj):
+        if not obj.meta_created_by:
+            return None
+
+        return obj.meta_created_by.get_full_name()
+
+    def get_predisclosure_status(self, obj):
+        latest = (
+            obj.predisclosure_status
+            .order_by("-meta_created_date")
+            .first()
+        )
+
+        return latest.status if latest else None
+
+    predisclosure_type_display = serializers.CharField(
+        source="get_predisclosure_type_display",
+        read_only=True,
+    )
+
+
+class PreDisclosureWriteSerializer(
+    serializers.ModelSerializer
+):
+    class Meta:
+        model = PreDisclosure
+        fields = "__all__"
+        read_only_fields = [
+            "predisclosure_id",
+            "link",
+            "meta_created_date",
+            "meta_created_by",
+            "meta_edited_date",
+            "meta_edited_by",
+        ]
+
+
+class PreDisclosureApproverSerializer(
+    serializers.ModelSerializer
+):
+    meta_edited_by = serializers.StringRelatedField(
+        many=False
+    )
+
+    approver = serializers.StringRelatedField()
+
+    class Meta:
+        model = PreDisclosureApprover
+        fields = "__all__"
+
+
+
+
+
+
+
+
+
+
+
 class SDALevel(MetaEditedAbstract):
     name = models.CharField(
         max_length=50,
