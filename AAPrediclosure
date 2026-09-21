@@ -28,7 +28,21 @@ sda_partner_level = models.ForeignKey(
     verbose_name="SDA Partner Level",
 )
 
+@admin.register(SDALevel)
+class SDALevelAdmin(admin.ModelAdmin):
+    list_display = (
+        "name",
+        "is_active",
+        "meta_edited_date",
+        "meta_edited_by",
+    )
+    list_filter = ("is_active",)
+    search_fields = ("name",)
 
+
+
+
+========================================
 
 def save(self, *args, **kwargs):
     if not self.link:
