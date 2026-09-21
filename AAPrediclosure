@@ -1,3 +1,7 @@
+if latest is None:
+        continue
+
+
 from django.db import transaction
 
 def process_line_approval(
