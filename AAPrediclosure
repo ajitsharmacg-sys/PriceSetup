@@ -1,3 +1,13 @@
+def save(self, *args, **kwargs):
+    if not self.link:
+        self.link = generate_upload_path(
+            region=self.region,
+            predisclosure_id=self.predisclosure_id,
+        )
+
+    super().save(*args, **kwargs)
+
+
 validate_paste_column_count(columnCount) {
     return this.predisclosure_line_columns.length === columnCount;
 },
