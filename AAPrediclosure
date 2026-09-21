@@ -1,3 +1,28 @@
+def perform_create(self, serializer):
+    predisclosure = serializer.validated_data["predisclosure"]
+
+    predisclosure_status = get_predisclosure_status(
+        predisclosure.predisclosure_id
+    )
+
+    if predisclosure_status.status != PreDisclosureStatusChoices.DRAFT:
+        raise PermissionDenied(
+            "Lines can only be created while request is in Draft."
+        )
+
+    instance = serializer.save(
+        meta_created_by=self.request.user
+    )
+
+    PreDisclosureLineStatus.objects.create(
+        line=instance,
+        status=PreDisclosureLineStatusChoices.DRAFT,
+        meta_created_by=self.request.user,
+    )
+
+    return instance
+
+
 if latest is None:
         continue
 
