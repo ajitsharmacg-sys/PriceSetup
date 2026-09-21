@@ -1,3 +1,31 @@
+sda_partner_level = models.ManyToManyField(
+    SDALevel,
+    blank=True,
+    related_name="predisclosure_lines",
+    verbose_name="SDA Partner Level",
+)
+
+
+sda_partner_level = serializers.PrimaryKeyRelatedField(
+        many=True,
+        queryset=SDALevel.objects.filter(
+            is_active=True
+        ),
+        required=False,
+    )
+
+
+sda_partner_level = SDALevelSerializer(
+        many=True,
+        read_only=True,
+    )
+
+
+
+
+
+
+
 from rest_framework import serializers
 
 from predisclosure.workflow import get_approver_stage_name
