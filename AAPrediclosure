@@ -1,3 +1,16 @@
+handle_line_change(index) {
+    const line = this.lines[index];
+
+    if (!line) {
+        return;
+    }
+
+    if (line.id && line.id !== "temp") {
+        this.changes.edited_lines.add(line.id);
+    }
+}
+
+
 def perform_create(self, serializer):
     predisclosure = serializer.validated_data["predisclosure"]
 
