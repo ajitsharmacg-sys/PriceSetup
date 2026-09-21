@@ -1,3 +1,35 @@
+class SDALevel(MetaEditedAbstract):
+    name = models.CharField(
+        max_length=50,
+        unique=True,
+        verbose_name="SDA Level",
+    )
+
+    is_active = models.BooleanField(
+        default=True,
+        verbose_name="Active",
+    )
+
+    def __str__(self):
+        return self.name
+
+    class Meta:
+        verbose_name = "SDA Level"
+        verbose_name_plural = "SDA Levels"
+        ordering = ["name"]
+
+
+sda_partner_level = models.ForeignKey(
+    SDALevel,
+    on_delete=models.SET_NULL,
+    blank=True,
+    null=True,
+    related_name="predisclosure_lines",
+    verbose_name="SDA Partner Level",
+)
+
+
+
 def save(self, *args, **kwargs):
     if not self.link:
         self.link = generate_upload_path(
