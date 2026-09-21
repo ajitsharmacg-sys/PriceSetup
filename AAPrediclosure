@@ -1,0 +1,116 @@
+from django.db import transaction
+
+def process_line_approval(
+    request,
+    line_status,
+    notification="",
+):
+    """
+    Main workflow engine.
+    """
+
+    with transaction.atomic():
+        predisclosure = line_status.line.predisclosure
+
+        # Wait until every line has been approved/rejected
+        if not is_stage_completed(predisclosure):
+            return
+
+        # Get the awaiting status that has just completed
+        previous_status = get_previous_status(line_status.line)
+
+        if previous_status is None:
+            return
+
+        next_status = get_next_status(
+            predisclosure.predisclosure_type,
+            predisclosure.product_category,
+            previous_status.status,
+        )
+
+        # Final stage completed
+        if not next_status:
+            finalize_workflow(
+                predisclosure,
+                request,
+                notification,
+            )
+            return
+
+        # Move every completed line to next stage
+        update_all_lines_status(
+            next_status,
+            predisclosure,
+            request,
+        )
+
+        notify_predisclosure_approvers(
+            request,
+            predisclosure,
+            next_status,
+            notification,
+        )
+
+
+def is_stage_completed(predisclosure):
+    lines = PreDisclosureLine.objects.filter(
+        predisclosure=predisclosure
+    )
+
+    if not lines.exists():
+        return False
+
+    for line in lines:
+        latest = get_latest_line_status(line)
+
+        if latest is None:
+            return False
+
+        if latest.status not in FINAL_LINE_STATUSES:
+            return False
+
+    return True
+
+
+for line in PreDisclosureLine.objects.filter(
+    predisclosure=predisclosure
+):
+    latest = get_latest_line_status(line)
+
+    if latest is None:
+        continue
+
+    if latest.status not in FINAL_LINE_STATUSES:
+        continue
+
+    PreDisclosureLineStatus.objects.create(
+        line=line,
+        status=status,
+        meta_created_by=request.user,
+    )
+
+
+
+def perform_create(self, serializer):
+    predisclosure = serializer.validated_data["predisclosure"]
+
+    predisclosure_status = get_predisclosure_status(
+        predisclosure.predisclosure_id
+    )
+
+    if predisclosure_status.status != PreDisclosureStatusChoices.DRAFT:
+        raise PermissionDenied(
+            "Lines can only be created while request is in Draft."
+        )
+
+    instance = serializer.save(
+        meta_created_by=self.request.user,
+    )
+
+    PreDisclosureLineStatus.objects.create(
+        line=instance,
+        status=PreDisclosureLineStatusChoices.DRAFT,
+        meta_created_by=self.request.user,
+    )
+
+    return instance
