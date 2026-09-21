@@ -1,3 +1,11 @@
+validate_paste_column_count(columnCount) {
+    return this.predisclosure_line_columns.length === columnCount;
+},
+
+if (!this.validate_paste_column_count(headers.length)) {
+
+
+
 handle_line_change(index) {
     const line = this.lines[index];
 
