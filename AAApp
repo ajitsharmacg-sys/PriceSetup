@@ -1,3 +1,93 @@
+watch: {
+    nav_context: {
+        async handler(newVal) {
+            if (
+                this.current_screen === "predisclosure_app" &&
+                newVal.context === "new"
+            ) {
+                this.reset_form();
+                return;
+            }
+
+            if (
+                this.current_screen === "predisclosure_app" &&
+                (
+                    newVal.context === "edit" ||
+                    newVal.context === "template"
+                )
+            ) {
+                this.setup_edit_context();
+
+                await this.get_predisclosure_lines(
+                    this.selected_predisclosure.predisclosure_id
+                );
+
+                /*
+                 * Load products for the selected product category.
+                 */
+                await this.load_products();
+
+                /*
+                 * SDA Partner Levels are required only for
+                 * PARTNER disclosure type.
+                 */
+                const disclosure_type = String(
+                    this.selected_predisclosure?.predisclosure_type ?? ""
+                )
+                    .trim()
+                    .toUpperCase();
+
+                if (disclosure_type === "PARTNER") {
+                    await this.load_sda_partner_levels();
+                } else {
+                    this.sda_partner_levels = [];
+                }
+
+                /*
+                 * Template mode converts existing lines into
+                 * new temporary lines.
+                 */
+                if (newVal.context === "template") {
+                    this.lines.forEach(line => {
+                        line.id = "temp";
+
+                        line.product_search = "";
+
+                        line.products = (line.products || []).map(
+                            product =>
+                                typeof product === "object"
+                                    ? product.id
+                                    : product
+                        );
+
+                        line.sda_partner_level = (
+                            line.sda_partner_level || []
+                        ).map(
+                            sda =>
+                                typeof sda === "object"
+                                    ? sda.id
+                                    : sda
+                        );
+
+                        line.sda_partner_level_search = "";
+                    });
+                }
+            }
+        },
+
+        deep: true,
+    },
+},
+
+
+
+
+
+
+
+
+
+
 async load_predisclosure(id) {
     this.loading = true;
 
