@@ -1,3 +1,56 @@
+def get_sda_partner_display(self, obj):
+    return ", ".join(
+        obj.sda_partner_level.values_list(
+            "sda_level_name",
+            flat=True
+        )
+    )
+
+
+class PreDisclosureLineWriteSerializer(
+    serializers.ModelSerializer
+):
+    predisclosure_line_status = PreDisclosureLineStatusSerializer(
+        many=True,
+        read_only=True,
+    )
+
+    products = serializers.PrimaryKeyRelatedField(
+        many=True,
+        queryset=PreDisclosureProduct.objects.filter(
+            is_active=True
+        ),
+        required=False,
+    )
+
+    sda_partner_level = serializers.PrimaryKeyRelatedField(
+        many=True,
+        queryset=PreDisclosureSDALevel.objects.filter(
+            is_active=True
+        ),
+        required=False,
+    )
+
+    class Meta:
+        model = PreDisclosureLine
+        fields = "__all__"
+        read_only_fields = [
+            "meta_created_date",
+            "meta_created_by",
+            "meta_edited_date",
+            "meta_edited_by",
+        ]
+
+
+
+PARTNER: [
+    "sda_partner_display",
+    "account_in_sda_partner_list",
+    "retailer_ranking",
+],
+
+
+
 predisclosure_line_columns() {
     return Object.keys(this.line_fields).filter(
         field => field !== "sda_partner_level"
