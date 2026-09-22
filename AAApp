@@ -85,18 +85,24 @@ async paste_lines_from_excel(line_items, index, event) {
         row_index < copied_lines.length;
         row_index++
     ) {
+        /*
+         * New row defaults.
+         *
+         * Products and SDA are intentionally empty because
+         * they are selected manually in the UI.
+         */
         const row = {
             products: [],
             product_search: "",
+
             sda_partner_level: [],
             sda_partner_level_search: "",
         };
 
         /*
-         * EDIT MODE
-         * New Excel rows must be marked as temporary.
-         * create_new_lines() uses id === "temp"
-         * to identify rows that need to be POSTed.
+         * In edit mode this is a NEW database record.
+         * create_new_lines() uses "temp" to identify
+         * rows that need to be POSTed.
          */
         if (this.nav_context.context === "edit") {
             row.id = "temp";
@@ -119,7 +125,13 @@ async paste_lines_from_excel(line_items, index, event) {
                 has_value = true;
             }
 
-            if (this.line_fields[mapping.field]?.date && value) {
+            /*
+             * Validate date fields.
+             */
+            if (
+                this.line_fields[mapping.field]?.date &&
+                value
+            ) {
                 value = this.validate_pasted_date(value);
 
                 if (!value) {
@@ -131,6 +143,9 @@ async paste_lines_from_excel(line_items, index, event) {
                 }
             }
 
+            /*
+             * Validate allowed values.
+             */
             if (
                 value &&
                 !this.validate_pasted_value(
@@ -144,6 +159,9 @@ async paste_lines_from_excel(line_items, index, event) {
             row[mapping.field] = value;
         }
 
+        /*
+         * Ignore completely empty Excel rows.
+         */
         if (!has_value) {
             continue;
         }
@@ -151,49 +169,39 @@ async paste_lines_from_excel(line_items, index, event) {
         /*
          * EDIT MODE
          *
-         * The first pasted Excel row replaces the line
-         * where the user pasted the data.
-         *
-         * Since the original line already exists in DB,
-         * mark it for deletion.
+         * Do NOT replace the existing DB line.
+         * Insert the pasted row as an additional new row.
          */
-        if (
-            this.nav_context.context === "edit" &&
-            pasted_row_count === 0
-        ) {
-            const existing_line = line_items[index];
-
-            if (
-                existing_line &&
-                existing_line.id &&
-                existing_line.id !== "temp"
-            ) {
-                this.changes.deleted_lines.add(
-                    existing_line.id
-                );
-            }
-        }
-
-        /*
-         * Insert the new Excel row.
-         */
-        if (pasted_row_count === 0) {
-            line_items.splice(index, 1, row);
-        } else {
+        if (this.nav_context.context === "edit") {
             line_items.splice(
                 index + pasted_row_count,
                 0,
                 row
             );
+
+            this.changes.new_lines_count++;
+        } else {
+            /*
+             * CREATE MODE
+             *
+             * Preserve the existing behavior.
+             */
+            if (pasted_row_count === 0) {
+                line_items.splice(
+                    index,
+                    1,
+                    row
+                );
+            } else {
+                line_items.splice(
+                    index + pasted_row_count,
+                    0,
+                    row
+                );
+            }
         }
 
         pasted_row_count++;
-
-        if (this.nav_context.context === "edit") {
-            this.changes.new_lines_count++;
-        }
-
-        index++;
     }
 
     if (pasted_row_count > 0) {
