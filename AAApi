@@ -1,3 +1,46 @@
+from html import escape
+
+
+def get_predisclosure_email_body(
+    predisclosure,
+    lines,
+    comment=None,
+    notification=None,
+):
+    # Existing email body logic...
+
+    notification_content = ""
+
+    if notification and notification.strip():
+        safe_notification = escape(
+            notification.strip()
+        ).replace(
+            "\r\n", "<br>"
+        ).replace(
+            "\n", "<br>"
+        )
+
+        notification_content = f"""
+        <p>
+            <strong>Additional Information:</strong>
+        </p>
+        <p>
+            {safe_notification}
+        </p>
+        """
+
+    return f"""
+        <!-- Existing email content -->
+
+        {notification_content}
+
+        <!-- Existing email content -->
+    """
+
+
+
+
+
 async save() {
     if (!this.validate_forms()) {
         return;
