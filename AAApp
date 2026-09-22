@@ -1,4 +1,229 @@
-const cells = copied_lines[row_index].split("\t");
+async paste_lines_from_excel(line_items, index, event) {
+    this.loading = true;
+
+    const text = event.clipboardData.getData("text/plain");
+
+    if (!text || !text.trim()) {
+        this.loading = false;
+        return;
+    }
+
+    const disclosure_type = String(
+        this.selected_predisclosure?.predisclosure_type ?? ""
+    )
+        .trim()
+        .toUpperCase();
+
+    if (!disclosure_type) {
+        this.show_notification(
+            "Please select a Disclosure Type before pasting Excel data."
+        );
+        this.loading = false;
+        return;
+    }
+
+    const copied_lines = text
+        .split(/\r?\n/)
+        .filter(line => line.trim() !== "");
+
+    if (!copied_lines.length) {
+        this.loading = false;
+        return;
+    }
+
+    const headers = copied_lines[0]
+        .split("\t")
+        .map(header => header.trim());
+
+    if (!this.validate_paste_column_count(headers.length)) {
+        this.show_notification(
+            "Invalid Excel template. Please paste the proper template data as per disclosure type selection."
+        );
+        this.loading = false;
+        return;
+    }
+
+    const field_mapping = [];
+
+    for (
+        let column_index = 0;
+        column_index < headers.length;
+        column_index++
+    ) {
+        const header = headers[column_index];
+
+        const field = Object.keys(this.line_fields).find(
+            field_name =>
+                this.line_fields[field_name].label
+                    .trim()
+                    .toLowerCase() === header.toLowerCase()
+        );
+
+        if (!field) {
+            continue;
+        }
+
+        field_mapping.push({
+            column_index,
+            field,
+        });
+    }
+
+    if (!field_mapping.length) {
+        this.show_notification(
+            "No valid Pre-Disclosure columns were found in the pasted Excel data."
+        );
+        this.loading = false;
+        return;
+    }
+
+    let pasted_row_count = 0;
+
+    for (
+        let row_index = 1;
+        row_index < copied_lines.length;
+        row_index++
+    ) {
+        const cells = copied_lines[row_index].split("\t");
+
+        /*
+         * Check the complete Excel row before creating
+         * a new line.
+         *
+         * This prevents blank rows containing only tabs/spaces
+         * from creating empty accounts.
+         */
+        const has_value = cells.some(
+            cell =>
+                cell !== undefined &&
+                cell !== null &&
+                String(cell).trim() !== ""
+        );
+
+        if (!has_value) {
+            continue;
+        }
+
+        const row = {
+            products: [],
+            product_search: "",
+
+            sda_partner_level: [],
+            sda_partner_level_search: "",
+        };
+
+        /*
+         * In edit mode every pasted row is a NEW row.
+         */
+        if (this.nav_context.context === "edit") {
+            row.id = "temp";
+        }
+
+        let valid_row = true;
+
+        for (const mapping of field_mapping) {
+            let value = cells[mapping.column_index];
+
+            if (value === undefined || value === null) {
+                value = "";
+            }
+
+            value = String(value).trim();
+
+            /*
+             * Validate date.
+             */
+            if (
+                this.line_fields[mapping.field]?.date &&
+                value
+            ) {
+                value = this.validate_pasted_date(value);
+
+                if (!value) {
+                    this.show_notification(
+                        `${this.line_fields[mapping.field].label}: invalid date. ` +
+                        `Please enter a valid date.`
+                    );
+
+                    valid_row = false;
+                    break;
+                }
+            }
+
+            /*
+             * Validate allowed values.
+             */
+            if (
+                value &&
+                !this.validate_pasted_value(
+                    mapping.field,
+                    value
+                )
+            ) {
+                valid_row = false;
+                break;
+            }
+
+            row[mapping.field] = value;
+        }
+
+        /*
+         * Do not insert a row if validation failed.
+         */
+        if (!valid_row) {
+            continue;
+        }
+
+        /*
+         * EDIT MODE
+         *
+         * Never replace an existing DB row.
+         * Insert the pasted row as a new temporary row.
+         */
+        if (this.nav_context.context === "edit") {
+            line_items.splice(
+                index + pasted_row_count,
+                0,
+                row
+            );
+
+            this.changes.new_lines_count++;
+        } else {
+            /*
+             * CREATE MODE
+             *
+             * Keep existing behavior.
+             */
+            line_items.splice(
+                index + pasted_row_count,
+                pasted_row_count === 0 ? 1 : 0,
+                row
+            );
+        }
+
+        pasted_row_count++;
+    }
+
+    if (pasted_row_count > 0) {
+        this.show_notification(
+            `${pasted_row_count} account(s) pasted successfully. ` +
+            "Please select the Product(s) and SDA Partner Level(s) manually for each account."
+        );
+    }
+
+    this.loading = false;
+},
+
+
+
+
+
+
+
+
+
+==========================
+------const cells = copied_lines[row_index].split("\t");
 
 const has_value = cells.some(
     cell =>
