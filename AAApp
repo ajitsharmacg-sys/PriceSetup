@@ -1,3 +1,16 @@
+const cells = copied_lines[row_index].split("\t");
+
+const has_value = cells.some(
+    cell =>
+        cell !== undefined &&
+        cell !== null &&
+        String(cell).trim() !== ""
+);
+
+if (!has_value) {
+    continue;
+}
+
 watch: {
     nav_context: {
         async handler(newVal) {
