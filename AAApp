@@ -77,6 +77,17 @@ async paste_lines_from_excel(line_items, index, event) {
         return;
     }
 
+    /*
+     * In edit mode, check whether the user clicked + Add
+     * and is pasting into the empty temporary row.
+     */
+    const current_line = line_items[index];
+
+    const is_empty_temp_row =
+        this.nav_context.context === "edit" &&
+        current_line &&
+        current_line.id === "temp";
+
     let pasted_row_count = 0;
 
     for (
@@ -97,6 +108,7 @@ async paste_lines_from_excel(line_items, index, event) {
             row.id = "temp";
         }
 
+        let has_value = false;
         let valid_row = true;
 
         for (const mapping of field_mapping) {
@@ -107,6 +119,10 @@ async paste_lines_from_excel(line_items, index, event) {
             }
 
             value = String(value).trim();
+
+            if (value) {
+                has_value = true;
+            }
 
             /*
              * Date validation
@@ -120,7 +136,7 @@ async paste_lines_from_excel(line_items, index, event) {
                 if (!value) {
                     this.show_notification(
                         `${this.line_fields[mapping.field].label}: invalid date. ` +
-                        `Please enter a valid date.`
+                        "Please enter a valid date."
                     );
 
                     valid_row = false;
@@ -146,33 +162,50 @@ async paste_lines_from_excel(line_items, index, event) {
         }
 
         /*
-         * Do not create an account if all mapped
-         * PreDisclosure fields are empty.
-         *
-         * This is the important fix.
+         * Ignore completely empty Excel rows.
          */
-        if (!valid_row || this.is_empty_line(row)) {
+        if (!has_value || !valid_row) {
             continue;
         }
 
         /*
          * EDIT MODE
-         *
-         * Existing DB rows are preserved.
-         * Every pasted row is inserted as a new row.
          */
         if (this.nav_context.context === "edit") {
-            line_items.splice(
-                index + pasted_row_count,
-                0,
-                row
-            );
 
-            this.changes.new_lines_count++;
-        } else {
             /*
-             * CREATE MODE
+             * FIRST pasted row:
+             *
+             * If the user clicked + and the current row
+             * is the empty temp row, REUSE that row.
              */
+            if (
+                is_empty_temp_row &&
+                pasted_row_count === 0
+            ) {
+                line_items[index] = row;
+            }
+
+            /*
+             * Remaining pasted rows:
+             *
+             * Insert new temp rows after the first row.
+             */
+            else {
+                line_items.splice(
+                    index + pasted_row_count,
+                    0,
+                    row
+                );
+
+                this.changes.new_lines_count++;
+            }
+        }
+
+        /*
+         * CREATE MODE
+         */
+        else {
             if (pasted_row_count === 0) {
                 line_items.splice(
                     index,
@@ -191,6 +224,18 @@ async paste_lines_from_excel(line_items, index, event) {
         pasted_row_count++;
     }
 
+    /*
+     * The first pasted row reused an existing temp row,
+     * so it should also be counted as a new DB record.
+     */
+    if (
+        this.nav_context.context === "edit" &&
+        is_empty_temp_row &&
+        pasted_row_count > 0
+    ) {
+        this.changes.new_lines_count++;
+    }
+
     if (pasted_row_count > 0) {
         this.show_notification(
             `${pasted_row_count} account(s) pasted successfully. ` +
@@ -200,8 +245,6 @@ async paste_lines_from_excel(line_items, index, event) {
 
     this.loading = false;
 },
-
-
 
 
 
