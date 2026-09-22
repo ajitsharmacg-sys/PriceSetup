@@ -1,3 +1,345 @@
+products: [],
+sda_partner_levels: [],
+approvers: [],
+options: options,
+
+handle_change(event) {
+    const field = event.target.name;
+
+    switch (field) {
+        case "product_category":
+            this.load_products();
+            break;
+
+        case "predisclosure_type":
+            this.resetDisclosureFields();
+
+            if (event.target.value === "PARTNER") {
+                this.load_sda_partner_levels();
+            } else {
+                this.sda_partner_levels = [];
+            }
+
+            break;
+    }
+},
+
+
+
+{% if field.name == "products" %}
+
+    <div class="position-relative">
+        <input
+            type="text"
+            class="form-control form-control-sm mb-2"
+            placeholder="Search product..."
+            v-model="line.product_search"
+            :id="'product_search_' + index"
+            @click.stop
+        >
+
+        <div
+            class="border rounded overflow-auto p-2"
+            style="height: 180px;"
+            @click.stop
+        >
+            <div
+                v-for="product in get_filtered_products(line.product_search)"
+                :key="product.id"
+                class="form-check mb-1"
+            >
+                <input
+                    class="form-check-input"
+                    type="checkbox"
+                    :id="'product_' + index + '_' + product.id"
+                    :value="product.id"
+                    v-model="line.products"
+                    @change="handle_line_change(index)"
+                >
+
+                <label
+                    class="form-check-label"
+                    :for="'product_' + index + '_' + product.id"
+                >
+                    [[ product.product_name ]]
+                </label>
+            </div>
+
+            <div
+                v-if="get_filtered_products(line.product_search).length === 0"
+                class="text-muted small text-center"
+            >
+                No products found
+            </div>
+        </div>
+    </div>
+
+{% elif field.name == "sda_partner_level" %}
+
+    <div class="position-relative">
+        <input
+            type="text"
+            class="form-control form-control-sm mb-2"
+            placeholder="Search SDA Partner Level..."
+            v-model="line.sda_partner_level_search"
+            :id="'sda_partner_level_search_' + index"
+            @click.stop
+        >
+
+        <div
+            class="border rounded overflow-auto p-2"
+            style="height: 180px;"
+            @click.stop
+        >
+            <div
+                v-for="sda in get_filtered_sda_partner_levels(line.sda_partner_level_search)"
+                :key="sda.id"
+                class="form-check mb-1"
+            >
+                <input
+                    class="form-check-input"
+                    type="checkbox"
+                    :id="'sda_partner_level_' + index + '_' + sda.id"
+                    :value="sda.id"
+                    v-model="line.sda_partner_level"
+                    @change="handle_line_change(index)"
+                >
+
+                <label
+                    class="form-check-label"
+                    :for="'sda_partner_level_' + index + '_' + sda.id"
+                >
+                    [[ sda.name ]]
+                </label>
+            </div>
+
+            <div
+                v-if="get_filtered_sda_partner_levels(line.sda_partner_level_search).length === 0"
+                class="text-muted small text-center"
+            >
+                No SDA Partner Levels found
+            </div>
+        </div>
+    </div>
+
+{% else %}
+
+    {{ field|add_attrs:"\:index=index;v-model=lines;@change=handle_line_change(index);@paste.prevent=paste_lines_from_excel(lines,index,$event)" }}
+
+{% endif %}
+
+
+
+
+get_filtered_sda_partner_levels(search_text) {
+    if (!search_text) {
+        return this.sda_partner_levels || [];
+    }
+
+    const search = search_text.toLowerCase();
+
+    return (this.sda_partner_levels || []).filter(sda =>
+        sda.name
+            .toLowerCase()
+            .includes(search)
+    );
+},
+
+
+
+async load_sda_partner_levels() {
+    this.sda_partner_levels = [];
+
+    await fetch(
+        api_endpoints.predisclosure_sda_levels
+    )
+        .then(response => {
+            if (response.ok) {
+                return response.json();
+            }
+
+            return Promise.reject(response);
+        })
+        .then(data => {
+            this.sda_partner_levels = data.results ?? data;
+        })
+        .catch(error => {
+            this.display_error(error);
+        });
+},
+
+
+predisclosure_sda_levels: "/predisclosuremgt/api/v1/sda_level/",
+
+
+
+this.selected_predisclosure.predisclosure_line =
+    data.results.map(line => ({
+        ...line,
+
+        products: (line.products || []).map(
+            product =>
+                typeof product === "object"
+                    ? product.id
+                    : product
+        ),
+
+        sda_partner_level: (line.sda_partner_level || []).map(
+            sda =>
+                typeof sda === "object"
+                    ? sda.id
+                    : sda
+        ),
+
+        product_search: "",
+        sda_partner_level_search: "",
+    }));
+
+update template:
+------------------
+
+this.lines.forEach(line => {
+    line.id = "temp";
+    line.product_search = "";
+
+    line.products = (line.products || []).map(
+        product =>
+            typeof product === "object"
+                ? product.id
+                : product
+    );
+
+    line.sda_partner_level = (line.sda_partner_level || []).map(
+        sda =>
+            typeof sda === "object"
+                ? sda.id
+                : sda
+    );
+
+    line.sda_partner_level_search = "";
+});
+
+
+
+add_line
+---------------
+add_line() {
+    const new_line = {
+        products: [],
+        product_search: "",
+
+        sda_partner_level: [],
+        sda_partner_level_search: "",
+    };
+
+
+copy_line(line, index) {
+    const clone = {
+        ...line,
+
+        products: [...(line.products || [])],
+        product_search: "",
+
+        sda_partner_level: [
+            ...(line.sda_partner_level || [])
+        ],
+        sda_partner_level_search: "",
+    };
+
+reset_form
+--------------
+this.products = [];
+this.sda_partner_levels = [];
+this.reset_changes();
+
+
+for (const line of this.lines) {
+    for (const field of fields_to_reset) {
+        if (field === "sda_partner_level") {
+            line[field] = [];
+            line.sda_partner_level_search = "";
+        } else {
+            line[field] = "";
+        }
+    }
+}
+
+
+
+const is_empty =
+    value === null ||
+    value === undefined ||
+    (Array.isArray(value)
+        ? value.length === 0
+        : String(value).trim() === "");
+
+if (is_empty) {
+    this.openAccounts[index] = true;
+
+    this.show_notification(
+        `Please enter ${this.line_fields[field].label} for Account #${index + 1}.`
+    );
+
+    this.$nextTick(() => {
+        const accountCards = document.querySelectorAll(
+            "#predisclosure_line_form > .card.mb-3"
+        );
+
+        const accountCard = accountCards[index];
+
+        if (accountCard) {
+            const element = accountCard.querySelector(
+                `[name="${field}"]`
+            );
+
+            if (element) {
+                element.focus();
+
+                element.scrollIntoView({
+                    behavior: "smooth",
+                    block: "center"
+                });
+            }
+        }
+    });
+
+    return false;
+}
+
+
+paste excel
+-------------
+const row = {
+    products: [],
+    product_search: "",
+
+    sda_partner_level: [],
+    sda_partner_level_search: "",
+};
+
+
+this.show_notification(
+    `${pasted_row_count} account(s) pasted successfully. ` +
+    "Please select the Product(s) and SDA Partner Level(s) manually for each account."
+);
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 from django import forms
 
 class PreDisclosureSDALevelAdminForm(forms.ModelForm):
