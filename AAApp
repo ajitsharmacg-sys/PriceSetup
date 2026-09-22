@@ -86,35 +86,13 @@ async paste_lines_from_excel(line_items, index, event) {
     ) {
         const cells = copied_lines[row_index].split("\t");
 
-        /*
-         * Check the complete Excel row before creating
-         * a new line.
-         *
-         * This prevents blank rows containing only tabs/spaces
-         * from creating empty accounts.
-         */
-        const has_value = cells.some(
-            cell =>
-                cell !== undefined &&
-                cell !== null &&
-                String(cell).trim() !== ""
-        );
-
-        if (!has_value) {
-            continue;
-        }
-
         const row = {
             products: [],
             product_search: "",
-
             sda_partner_level: [],
             sda_partner_level_search: "",
         };
 
-        /*
-         * In edit mode every pasted row is a NEW row.
-         */
         if (this.nav_context.context === "edit") {
             row.id = "temp";
         }
@@ -131,7 +109,7 @@ async paste_lines_from_excel(line_items, index, event) {
             value = String(value).trim();
 
             /*
-             * Validate date.
+             * Date validation
              */
             if (
                 this.line_fields[mapping.field]?.date &&
@@ -151,7 +129,7 @@ async paste_lines_from_excel(line_items, index, event) {
             }
 
             /*
-             * Validate allowed values.
+             * Choice/value validation
              */
             if (
                 value &&
@@ -168,17 +146,20 @@ async paste_lines_from_excel(line_items, index, event) {
         }
 
         /*
-         * Do not insert a row if validation failed.
+         * Do not create an account if all mapped
+         * PreDisclosure fields are empty.
+         *
+         * This is the important fix.
          */
-        if (!valid_row) {
+        if (!valid_row || this.is_empty_line(row)) {
             continue;
         }
 
         /*
          * EDIT MODE
          *
-         * Never replace an existing DB row.
-         * Insert the pasted row as a new temporary row.
+         * Existing DB rows are preserved.
+         * Every pasted row is inserted as a new row.
          */
         if (this.nav_context.context === "edit") {
             line_items.splice(
@@ -191,14 +172,20 @@ async paste_lines_from_excel(line_items, index, event) {
         } else {
             /*
              * CREATE MODE
-             *
-             * Keep existing behavior.
              */
-            line_items.splice(
-                index + pasted_row_count,
-                pasted_row_count === 0 ? 1 : 0,
-                row
-            );
+            if (pasted_row_count === 0) {
+                line_items.splice(
+                    index,
+                    1,
+                    row
+                );
+            } else {
+                line_items.splice(
+                    index + pasted_row_count,
+                    0,
+                    row
+                );
+            }
         }
 
         pasted_row_count++;
@@ -213,8 +200,6 @@ async paste_lines_from_excel(line_items, index, event) {
 
     this.loading = false;
 },
-
-
 
 
 
