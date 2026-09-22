@@ -1,3 +1,32 @@
+async load_predisclosure(id) {
+    this.loading = true;
+
+    const response = await fetch(
+        `/predisclosuremgt/api/v1/predisclosure/${id}/`
+    );
+
+    const data = await response.json();
+
+    this.selected_predisclosure = data;
+
+    /*
+     * Load SDA levels only for Partner disclosure.
+     */
+    if (
+        this.selected_predisclosure?.predisclosure_type === "PARTNER"
+    ) {
+        await this.load_sda_partner_levels();
+    }
+
+    this.loading = false;
+}
+
+
+
+
+
+
+
 async paste_lines_from_excel(line_items, index, event) {
     this.loading = true;
 
