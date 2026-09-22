@@ -1,3 +1,22 @@
+class SDALevelView(viewsets.ReadOnlyModelViewSet):
+    permission_classes = [IsApplicationUser]
+    serializer_class = SDALevelSerializer
+
+    def get_queryset(self):
+        return SDALevel.objects.filter(
+            is_active=True
+        )
+
+router.register(
+    r"sda_level",
+    SDALevelView,
+    basename="sda-level",
+)
+
+
+
+
+
 sda_partner_level = models.ManyToManyField(
     SDALevel,
     blank=True,
