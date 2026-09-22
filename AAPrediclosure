@@ -1,3 +1,63 @@
+async save() {
+    if (!this.validate_forms()) {
+        return;
+    }
+
+    this.loading = true;
+
+    this.show_notification(
+        "Updating PreDisclosure..."
+    );
+
+    const header_saved = await this.patch_predisclosure();
+
+    if (!header_saved) {
+        this.loading = false;
+        return;
+    }
+
+    const lines_created = await this.create_new_lines();
+
+    if (!lines_created) {
+        this.loading = false;
+        return;
+    }
+
+    const lines_updated = await this.patch_lines();
+
+    if (!lines_updated) {
+        this.loading = false;
+        return;
+    }
+
+    const lines_deleted = await this.delete_lines();
+
+    if (!lines_deleted) {
+        this.loading = false;
+        return;
+    }
+
+    this.reset_changes();
+
+    this.navigate("predisclosure_view");
+
+    this.show_notification(
+        "Changes saved successfully."
+    );
+
+    this.loading = false;
+}
+
+
+
+
+
+
+
+
+
+
+
 const row = {
     products: [],
     product_search: "",
