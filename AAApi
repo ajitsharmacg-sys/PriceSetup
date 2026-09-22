@@ -1,0 +1,176 @@
+async save() {
+    if (!this.validate_forms()) {
+        return;
+    }
+
+    this.loading = true;
+
+    this.show_notification(
+        "Updating PreDisclosure..."
+    );
+
+    let error_occured = false;
+
+    error_occured = !(await this.patch_predisclosure());
+
+    if (!error_occured) {
+        error_occured = !(await this.create_new_lines());
+    }
+
+    if (!error_occured) {
+        error_occured = !(await this.patch_lines());
+    }
+
+    if (!error_occured) {
+        error_occured = !(await this.delete_lines());
+    }
+
+    if (!error_occured) {
+        this.reset_changes();
+        this.navigate("predisclosure_view");
+
+        this.show_notification(
+            "Changes saved successfully."
+        );
+    }
+
+    this.loading = false;
+}
+
+
+async patch_predisclosure() {
+    const payload = {
+        ...this.selected_predisclosure,
+    };
+
+    let error_occured = false;
+
+    await patchData(
+        api_endpoints.predisclosure +
+        this.selected_predisclosure.predisclosure_id +
+        "/",
+        payload,
+    )
+        .then(response => {
+            if (response.ok) {
+                return response.json();
+            }
+
+            return Promise.reject(response);
+        })
+        .catch(error => {
+            error_occured = true;
+            this.display_error(error);
+        });
+
+    return !error_occured;
+}
+
+
+async create_new_lines() {
+    let error_occured = false;
+
+    for (const line of this.lines) {
+        if (line.id !== "temp") {
+            continue;
+        }
+
+        delete line.id;
+
+        line.predisclosure =
+            this.selected_predisclosure.predisclosure_id;
+
+        await postData(
+            api_endpoints.predisclosure_line,
+            line,
+        )
+            .then(response => {
+                if (response.ok) {
+                    return response.json();
+                }
+
+                return Promise.reject(response);
+            })
+            .catch(error => {
+                error_occured = true;
+                this.display_error(error);
+            });
+
+        if (error_occured) {
+            break;
+        }
+    }
+
+    return !error_occured;
+}
+
+
+async patch_lines() {
+    let error_occured = false;
+
+    for (const id of this.changes.edited_lines) {
+        const line = this.lines.find(l => l.id == id);
+
+        if (!line) {
+            continue;
+        }
+
+        await patchData(
+            api_endpoints.predisclosure_line +
+            id +
+            "/",
+            line,
+        )
+            .then(response => {
+                if (response.ok) {
+                    return response.json();
+                }
+
+                return Promise.reject(response);
+            })
+            .catch(error => {
+                error_occured = true;
+                this.display_error(error);
+            });
+
+        if (error_occured) {
+            break;
+        }
+    }
+
+    return !error_occured;
+}
+
+async delete_lines() {
+    let error_occured = false;
+
+    for (const id of this.changes.deleted_lines) {
+        if (id == "temp") {
+            continue;
+        }
+
+        await deleteRequest(
+            api_endpoints.predisclosure_line +
+            id +
+            "/"
+        )
+            .then(response => {
+                if (response.ok) {
+                    return true;
+                }
+
+                return Promise.reject(response);
+            })
+            .catch(error => {
+                error_occured = true;
+                this.display_error(error);
+            });
+
+        if (error_occured) {
+            break;
+        }
+    }
+
+    return !error_occured;
+}
+
