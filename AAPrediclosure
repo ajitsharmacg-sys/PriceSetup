@@ -1,3 +1,32 @@
+SELECT * 
+FROM predisclosure_predisclosurelinestatus;
+
+SELECT * 
+FROM predisclosure_predisclosureline;
+
+SELECT * 
+FROM predisclosure_predisclosure;
+
+SELECT COUNT(*) AS LineStatusCount
+FROM predisclosure_predisclosurelinestatus;
+
+SELECT COUNT(*) AS LineCount
+FROM predisclosure_predisclosureline;
+
+SELECT COUNT(*) AS PreDisclosureCount
+FROM predisclosure_predisclosure;
+
+
+DELETE FROM predisclosure_predisclosurelinestatus;
+
+DELETE FROM predisclosure_predisclosureline;
+
+DELETE FROM predisclosure_predisclosure;
+
+
+
+
+
 class SDALevelView(viewsets.ReadOnlyModelViewSet):
     permission_classes = [IsApplicationUser]
     serializer_class = SDALevelSerializer
