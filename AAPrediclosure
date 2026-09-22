@@ -53,7 +53,32 @@ async save() {
 
 
 
+async patch_predisclosure() {
+    const payload = {
+        ...this.selected_predisclosure,
+    };
 
+    return await patchData(
+        api_endpoints.predisclosure +
+        this.selected_predisclosure.predisclosure_id +
+        "/",
+        payload,
+    )
+    .then(response => {
+        if (response.ok) {
+            return response.json();
+        }
+
+        return Promise.reject(response);
+    })
+    .then(() => {
+        return true;
+    })
+    .catch(error => {
+        this.display_error(error);
+        return false;
+    });
+}
 
 
 
