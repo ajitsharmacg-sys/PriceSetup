@@ -1,3 +1,28 @@
+BEGIN TRANSACTION;
+
+-- 1. Delete line status records
+DELETE FROM dbo.predisclosure_predisclosurelinestatus;
+
+-- 2. Delete line-product M2M records
+DELETE FROM dbo.predisclosure_predisclosureline_products;
+
+-- 3. Delete line records
+DELETE FROM dbo.predisclosure_predisclosureline;
+
+-- 4. Delete PreDisclosure header records
+DELETE FROM dbo.predisclosure_predisclosure;
+
+COMMIT;
+
+
+
+
+
+
+
+
+
+
 SELECT * 
 FROM predisclosure_predisclosurelinestatus;
 
