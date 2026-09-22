@@ -1,3 +1,55 @@
+const row = {
+    products: [],
+    product_search: "",
+    sda_partner_level: [],
+    sda_partner_level_search: "",
+};
+
+if (this.nav_context.context === "edit") {
+    row.id = "temp";
+}
+
+
+if (this.nav_context.context === "edit") {
+    row.id = "temp";
+
+    if (pasted_row_count === 0) {
+        const existing_line = line_items[index];
+
+        if (
+            existing_line &&
+            existing_line.id &&
+            existing_line.id !== "temp"
+        ) {
+            this.changes.deleted_lines.add(existing_line.id);
+        }
+
+        line_items.splice(index, 1, row);
+    } else {
+        line_items.splice(
+            index + pasted_row_count,
+            0,
+            row
+        );
+    }
+
+    this.changes.new_lines_count++;
+} else {
+    if (pasted_row_count === 0) {
+        line_items.splice(index, 1, row);
+    } else {
+        line_items.splice(
+            index + pasted_row_count,
+            0,
+            row
+        );
+    }
+}
+
+---------------------
+
+
+
 def get_sda_partner_display(self, obj):
     return ", ".join(
         obj.sda_partner_level.values_list(
