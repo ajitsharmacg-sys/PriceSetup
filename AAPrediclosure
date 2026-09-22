@@ -1,3 +1,11 @@
+predisclosure_line_columns() {
+    return Object.keys(this.line_fields).filter(
+        field => field !== "sda_partner_level"
+    );
+},
+
+
+
 products: [],
 sda_partner_levels: [],
 approvers: [],
