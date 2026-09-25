@@ -1,0 +1,69 @@
+<section id="aif_app" class="no-screen-navigation" data-screen-name="AIF App">
+    <div v-if="nav_state.aif_app">
+
+        <!-- Top Navigation -->
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+
+                <li class="breadcrumb-item">
+                    <a href="#">
+                        <i
+                            class="bi bi-arrow-left-circle-fill"
+                            @click="navigate(nav_state.previous)">
+                        </i>
+                    </a>
+                </li>
+
+                <li class="breadcrumb-item">
+                    <a href="#" @click="navigate('list_of_aifs')">
+                        AIFs
+                    </a>
+                </li>
+
+                <li
+                    v-if="nav_state.context === 'edit'"
+                    class="breadcrumb-item active"
+                    aria-current="page"
+                >
+                    [[ aif.aif_id ]]
+                </li>
+
+                <li
+                    v-if="nav_state.context === 'template'"
+                    class="breadcrumb-item active"
+                    aria-current="page"
+                >
+                    AIF As Template
+                </li>
+
+                <li
+                    v-if="nav_state.context === null"
+                    class="breadcrumb-item active"
+                    aria-current="page"
+                >
+                    Create AIF
+                </li>
+
+            </ol>
+        </nav>
+
+        <!-- Loading Overlay -->
+        <div
+            v-if="isLoading"
+            class="position-fixed top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center bg-white bg-opacity-75"
+            style="z-index: 1055;"
+        >
+            <div class="text-center">
+                <div
+                    class="spinner-border text-primary"
+                    role="status">
+                </div>
+
+                <div class="small mt-2 text-muted">
+                    Processing...
+                </div>
+            </div>
+        </div>
+
+        <!-- AIF Form -->
+        <section class="section">
