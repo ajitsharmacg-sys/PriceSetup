@@ -1,3 +1,54 @@
+validate_line_values() {
+    if (!this.lines || this.lines.length === 0) {
+        return true;
+    }
+
+    for (let i = 0; i < this.lines.length; i++) {
+        const line = this.lines[i];
+
+        // Mercury Code
+        if (!line.mercury_code || !line.mercury_code.trim()) {
+            this.show_notification(
+                `Mercury Code is required for Line ${i + 1}.`
+            );
+            return false;
+        }
+
+        // Promotional Quantity
+        if (
+            line.promotional_qty === null ||
+            line.promotional_qty === undefined ||
+            line.promotional_qty <= 0
+        ) {
+            this.show_notification(
+                `Promotional Quantity must be greater than 0 for Line ${i + 1}.`
+            );
+            return false;
+        }
+
+        // Promotional ELP
+        if (
+            line.promotional_elp === null ||
+            line.promotional_elp === undefined ||
+            line.promotional_elp <= 0
+        ) {
+            this.show_notification(
+                `Promotional ELP must be greater than 0 for Line ${i + 1}.`
+            );
+            return false;
+        }
+    }
+
+    return true;
+},
+
+
+
+
+
+
+
+
 from html import escape
 
 
