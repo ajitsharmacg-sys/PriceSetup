@@ -1,3 +1,35 @@
+computed: {
+    lines() {
+        return this.selected_aif.aif_lines;
+    },
+
+    customer_lines() {
+        return this.selected_aif.aif_customer_lines;
+    },
+
+    promoValue() {
+        return (this.lines || []).reduce(
+            (sum, line) => sum + (parseFloat(line.line_value) || 0),
+            0
+        ).toFixed(2);
+    },
+
+    promoValueEuro() {
+        return (this.lines || []).reduce(
+            (sum, line) => sum + (parseFloat(line.line_value_eur) || 0),
+            0
+        ).toFixed(2);
+    },
+
+    isAllNSOMarketEnabled() {
+        return !!this.selected_aif?.is_all_nso_enabled;
+    }
+}
+
+
+
+
+
 reset_form() {
     this.aif = {
         aif_lines: [],
