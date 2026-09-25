@@ -1,69 +1,84 @@
+navigate(id, context = null) {
+    this.nav_context.context = context;
+    this.current_screen = id;
+}
+
 <section id="aif_app" class="no-screen-navigation" data-screen-name="AIF App">
-    <div v-if="nav_state.aif_app">
+    <div v-if="current_screen === 'aif_app'">
+        
 
-        <!-- Top Navigation -->
-        <nav aria-label="breadcrumb">
-            <ol class="breadcrumb">
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
 
-                <li class="breadcrumb-item">
-                    <a href="#">
-                        <i
-                            class="bi bi-arrow-left-circle-fill"
-                            @click="navigate(nav_state.previous)">
-                        </i>
-                    </a>
-                </li>
+        <li class="breadcrumb-item">
+            <a href="#">
+                <i
+                    class="bi bi-arrow-left-circle-fill"
+                    @click="navigate(nav_context.previous)"
+                ></i>
+            </a>
+        </li>
 
-                <li class="breadcrumb-item">
-                    <a href="#" @click="navigate('list_of_aifs')">
-                        AIFs
-                    </a>
-                </li>
+        <li class="breadcrumb-item">
+            <a href="#" @click="navigate('list_of_aifs')">
+                AIFs
+            </a>
+        </li>
 
-                <li
-                    v-if="nav_state.context === 'edit'"
-                    class="breadcrumb-item active"
-                    aria-current="page"
-                >
-                    [[ aif.aif_id ]]
-                </li>
-
-                <li
-                    v-if="nav_state.context === 'template'"
-                    class="breadcrumb-item active"
-                    aria-current="page"
-                >
-                    AIF As Template
-                </li>
-
-                <li
-                    v-if="nav_state.context === null"
-                    class="breadcrumb-item active"
-                    aria-current="page"
-                >
-                    Create AIF
-                </li>
-
-            </ol>
-        </nav>
-
-        <!-- Loading Overlay -->
-        <div
-            v-if="isLoading"
-            class="position-fixed top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center bg-white bg-opacity-75"
-            style="z-index: 1055;"
+        <li
+            v-if="nav_context.context === 'edit'"
+            class="breadcrumb-item active"
+            aria-current="page"
         >
-            <div class="text-center">
-                <div
-                    class="spinner-border text-primary"
-                    role="status">
-                </div>
+            [[ aif.aif_id ]]
+        </li>
 
-                <div class="small mt-2 text-muted">
-                    Processing...
-                </div>
-            </div>
-        </div>
+        <li
+            v-if="nav_context.context === 'template'"
+            class="breadcrumb-item active"
+            aria-current="page"
+        >
+            AIF As Template
+        </li>
 
-        <!-- AIF Form -->
-        <section class="section">
+    </ol>
+</nav>
+
+
+current_screen: current_screen,
+nav_context: nav_context,
+selected_aif: selected_aif,
+aifs: aifs,
+dialog: dialog,
+
+this.aif becomes
+this.selected_aif
+
+
+watch: {
+    nav_context: {
+        async handler(newVal) {
+            if (
+                this.current_screen === "aif_app" &&
+                newVal.context === "new"
+            ) {
+                this.reset_form();
+            }
+
+            if (
+                this.current_screen === "aif_app" &&
+                (
+                    newVal.context === "edit" ||
+                    newVal.context === "template"
+                )
+            ) {
+                await this.setup_edit_context();
+            }
+        },
+        deep: true,
+    },
+},
+
+        
+        
+        
