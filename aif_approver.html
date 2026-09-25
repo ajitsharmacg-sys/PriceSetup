@@ -1,0 +1,197 @@
+{% load static %}
+{% load common_tags %}
+
+{% block aif_approver %}
+
+<section
+    id="aif_approver"
+    class="no-screen-navigation"
+    data-screen-name="AIF Approver"
+>
+    <div v-if="current_screen === 'aif_approver'">
+
+        <!-- Top Navigation -->
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+
+                <li class="breadcrumb-item">
+                    <a href="#">
+                        <i
+                            class="bi bi-arrow-left-circle-fill"
+                            @click="navigate('list_of_aifs')"
+                        ></i>
+                    </a>
+                </li>
+
+                <li class="breadcrumb-item">
+                    <a
+                        href="#"
+                        @click="navigate('list_of_aifs')"
+                    >
+                        AIFs
+                    </a>
+                </li>
+
+                <li class="breadcrumb-item active" aria-current="page">
+                    AIF Approver
+                </li>
+
+            </ol>
+        </nav>
+
+        <!-- AIF Approver Cards -->
+        <div class="section">
+            <div class="row g-3">
+
+                <template
+                    v-for="(responsibilities, productGroup) in groupedApprovers"
+                    :key="productGroup"
+                >
+
+                    <template
+                        v-for="(groups, responsibility) in responsibilities"
+                        :key="responsibility"
+                    >
+
+                        <div class="col-md-4">
+
+                            <div class="card h-100">
+
+                                <div class="card-body">
+
+                                    <div class="mb-2">
+                                        <small class="text-muted">
+                                            Product Group
+                                        </small>
+                                        <div>
+                                            <strong>[[ productGroup ]]</strong>
+                                        </div>
+                                    </div>
+
+                                    <div class="mb-2">
+                                        <small class="text-muted">
+                                            Responsibility
+                                        </small>
+                                        <div>
+                                            [[ responsibility ]]
+                                        </div>
+                                    </div>
+
+                                    <div class="mb-2">
+                                        <small class="text-muted">
+                                            Emails
+                                        </small>
+                                        <div>
+                                            [[ groups.emails.join(', ') ]]
+                                        </div>
+                                    </div>
+
+                                    <div
+                                        class="mb-2"
+                                        v-if="groups.modified_at"
+                                    >
+                                        <small class="text-muted">
+                                            Modified
+                                        </small>
+                                        <div>
+                                            [[ new Date(groups.modified_at).toLocaleString() ]]
+                                        </div>
+                                    </div>
+
+                                    <div
+                                        class="mb-2"
+                                        v-if="groups.modified_by"
+                                    >
+                                        <small class="text-muted">
+                                            Modified By
+                                        </small>
+                                        <div>
+                                            [[ groups.modified_by ]]
+                                        </div>
+                                    </div>
+
+                                </div>
+
+                            </div>
+
+                        </div>
+
+                    </template>
+
+                </template>
+
+            </div>
+        </div>
+
+    </div>
+</section>
+
+<script type="module">
+
+    Vue.createApp({
+        delimiters: ['[[', ']]'],
+
+        data() {
+            return {
+                current_screen: current_screen,
+                nav_context: nav_context,
+                aif_approvers: aif_approvers,
+            }
+        },
+
+        computed: {
+
+            groupedApprovers() {
+                const result = {};
+
+                this.aif_approvers.forEach(item => {
+
+                    const pg = item.product_group;
+                    const resp = item.responsibility;
+
+                    if (!result[pg]) {
+                        result[pg] = {};
+                    }
+
+                    if (!result[pg][resp]) {
+                        result[pg][resp] = {
+                            emails: [],
+                            modified_by: "",
+                            modified_at: ""
+                        };
+                    }
+
+                    result[pg][resp].emails.push(
+                        item.approver.email
+                    );
+
+                    if (item.meta_edited_by) {
+
+                        result[pg][resp].modified_by =
+                            `${item.meta_edited_by.first_name} ${item.meta_edited_by.last_name}`.trim();
+
+                        result[pg][resp].modified_at =
+                            item.meta_edited_date;
+                    }
+
+                });
+
+                return result;
+            }
+
+        },
+
+        methods: {
+
+            navigate(id, context = null) {
+                this.nav_context.context = context;
+                this.current_screen = id;
+            },
+
+        },
+
+    }).mount("#aif_approver");
+
+</script>
+
+{% endblock %}
