@@ -1,5 +1,46 @@
 v-model=selected_aif
 
+[[ aif.aif_id ]]
+
+reset_form() {
+    this.selected_aif = {
+        aif_lines: [],
+        aif_status: [],
+        aif_customer_lines: [],
+    };
+
+    this.changes = {
+        new_lines_count: 0,
+        deleted_lines: new Set([]),
+        edited_lines: new Set([])
+    };
+
+    this.customer_changes = {
+        new_cust_lines_count: 0,
+        deleted_cust_lines: new Set([]),
+        edited_cust_lines: new Set([])
+    };
+
+    this.customer_name_search_results = [];
+    this.invalidMercuries = [];
+    this.invalidCustomers = [];
+    this.isLoading = false;
+}
+
+async setup_edit_context() {
+    const aif_id = this.selected_aif?.aif_id;
+
+    if (!aif_id) {
+        return;
+    }
+
+    await this.get_aif(aif_id);
+
+    if (this.nav_context.context === "template") {
+        this.selected_aif.aif_id = null;
+    }
+}
+
 computed: {
     lines() {
         return this.selected_aif.aif_lines;
