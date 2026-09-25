@@ -1,3 +1,17 @@
+recalculateAllLines
+
+if (this.nav_context.context === "edit" && line.id) {
+    this.changes.edited_lines.add(line.id);
+}
+
+if (this.nav_context.context == "edit") {
+    this.changes.deleted_lines.add(line.id);
+}
+
+if (this.nav_context.context === "edit") {
+    row.id = null;
+}
+
 navigate(id, context = null) {
     this.nav_context.context = context;
     this.current_screen = id;
