@@ -1,3 +1,46 @@
+validate_mercury_codes() {
+    if (!this.lines || this.lines.length === 0) {
+        return true;
+    }
+
+    for (let i = 0; i < this.lines.length; i++) {
+        const mercury = this.lines[i].mercury_code?.trim();
+
+        if (!mercury) {
+            this.show_notification(
+                `Mercury Code is required for Line ${i + 1}. Please enter a Mercury Code before submitting.`
+            );
+            return false;
+        }
+    }
+
+    return true;
+},
+
+if (this.hasDuplicateMercuries()) {
+        return false;
+    }
+                          
+
+
+
+
+
+
+
+
+
+
+def clean(self):
+    super().clean()
+
+    if not self.mercury_code or not self.mercury_code.strip():
+        raise ValidationError({
+            "mercury_code": "Mercury Code is required."
+        })
+
+
+
 v-model=selected_aif
 
 [[ aif.aif_id ]]
