@@ -1,0 +1,2 @@
+<section id="aif_view" class="no-screen-navigation" data-screen-name="AIF View">
+    <div v-if="current_screen === 'aif_view'">
