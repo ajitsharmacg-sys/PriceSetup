@@ -1,3 +1,420 @@
+<!-- ===================== HEADER ===================== -->
+<div class="row g-4">
+
+    <!-- ================= LEFT SIDE ================= -->
+    <div class="col-12 col-lg-6">
+
+        <!-- Customer Details -->
+        <div class="p-1">
+
+            <django-paged-table
+                :api_endpoint="api_endpoints.aif_customer_line"
+                :columns="customer_columns"
+                :fixed_query_filter="customer_filter"
+                title="Customer Details"
+                :custom_format="custom_format"
+                v-model:data_refresh_trigger="update_triggered">
+            </django-paged-table>
+
+        </div>
+
+        <!-- AIF Status History -->
+        <div class="p-1 mt-3">
+
+            <status-history
+                :api_endpoint="aif_status_history_url"
+                v-model:data_refresh_trigger="update_triggered"
+                :custom_format="custom_format?.aif_status">
+            </status-history>
+
+        </div>
+
+    </div>
+
+
+    <!-- ================= RIGHT SIDE ================= -->
+    <div class="col-12 col-lg-6">
+
+        <div class="p-1">
+
+            <vertical-table
+                :api_endpoint="get_url"
+                :columns="header_columns"
+                v-model:data_refresh_trigger="update_triggered"
+                :custom_format="custom_format"
+                @on-item-update="(item) => { this.selected_aif = item; }">
+
+                <!-- AIF Actions -->
+                <template #actions="actionProps">
+
+                    <!-- AIF Level Actions -->
+                    <tr v-if="actionProps?.aif_status !== 'CLOSED'
+                        && actionProps?.aif_status !== 'PLANNED'">
+
+                        <th>AIF Level Actions</th>
+
+                        <td>
+                            <div class="btn-group">
+
+                                <template
+                                    v-for="choice in get_status_choices()"
+                                >
+
+                                    <button
+                                        type="button"
+                                        :class="get_display_action(choice).button_class"
+                                        @click="show_modal('modal_' + choice)"
+                                    >
+                                        [[ get_display_action(choice).button_text ]]
+                                    </button>
+
+                                </template>
+
+                                <button
+                                    v-if="['DRAFT', 'INVALID'].includes(actionProps?.aif_status)"
+                                    type="button"
+                                    class="btn btn-sm btn-primary"
+                                    @click="navigate('aif_app', 'edit')"
+                                >
+                                    Edit
+                                </button>
+
+                            </div>
+                        </td>
+
+                    </tr>
+
+
+                    <!-- Line Level Actions -->
+                    <tr v-if="actionProps?.aif_status === 'PLANNED'">
+
+                        <th>Line Level Actions</th>
+
+                        <td>
+
+                            <div
+                                v-if="checked_lines.length > 0"
+                                class="btn-group"
+                            >
+
+                                <template
+                                    v-for="choice in multiple_line_status_choices()"
+                                >
+
+                                    <button
+                                        type="button"
+                                        :class="get_line_display_action(choice).button_class"
+                                        @click="show_modal('line_modal_' + choice)"
+                                    >
+                                        [[ get_line_display_action(choice).button_text ]]
+                                    </button>
+
+                                </template>
+
+                            </div>
+
+                            <div
+                                v-else
+                                class="py-2"
+                            >
+                                <span class="text-muted small">
+                                    Select line to see available action.
+                                </span>
+                            </div>
+
+                        </td>
+
+                    </tr>
+
+                </template>
+
+            </vertical-table>
+
+        </div>
+
+    </div>
+
+</div>
+
+
+<!-- ===================== AIF LINES ===================== -->
+<div class="container-fluid mt-5">
+
+    <django-paged-table
+        :api_endpoint="api_endpoints.aif_lines"
+        :columns="line_columns"
+        :fixed_query_filter="line_filter"
+        title="AIF Lines"
+        :filter_items="line_filter_items"
+        :row_select_active="true"
+        v-model:data_refresh_trigger="update_triggered"
+        :custom_format="custom_format"
+
+        @row-select="(item, index) => {
+            if (canActOnLine(item)) {
+                checked_lines.push(item);
+            }
+        }"
+
+        @row-unselect="(item, index) => {
+            const indexToRemove = checked_lines.indexOf(item);
+            if (indexToRemove !== -1) {
+                checked_lines.splice(indexToRemove, 1);
+            }
+        }"
+    >
+
+        <!-- Line Actions -->
+        <template #actions="actionProps">
+
+            <div class="btn-group">
+
+                <button
+                    type="button"
+                    class="btn btn-secondary"
+                    @click="
+                        selected_line = actionProps;
+                        show_modal('line_status_modal');
+                    "
+                    title="See Line Status History"
+                >
+
+                    <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="32"
+                        height="32"
+                        fill="currentColor"
+                        viewBox="0 0 16 16"
+                    >
+                        <path
+                            d="M8.515 1.019A7 7 0 0 0 8 1V0a8 8 0 0 1 .589.022zm2.004.45a7 7 0 0 0-.985-.299l.219-.976q.576.129 1.126.342zm1.37.71a7 7 0 0 0-.439-.27l.493-.87a8 8 0 0 1 .979.654l-.615.789a7 7 0 0 0-.418-.302zm1.834 1.79a7 7 0 0 0-.653-.796l.724-.69q.406.429.747.91zm.744 1.352a7 7 0 0 0-.214-.468l.893-.45a8 8 0 0 1 .45 1.088l-.95.313a7 7 0 0 0-.179-.483m.53 2.507a7 7 0 0 0-.1-1.025l.985-.17q.1.58.116 1.17zm-.131 1.538q.05-.254.081-.51l.993.123a8 8 0 0 1-.23 1.155l-.964-.267q.069-.247.12-.501m-.952 2.379q.276-.436.486-.908l.914.405q-.24.54-.555 1.038zm-.964 1.205q.183-.183.35-.378l.758.653a8 8 0 0 1-.401.432z"
+                        />
+
+                        <path
+                            d="M8 1a7 7 0 1 0 4.95 11.95l.707.707A8.001 8.001 0 1 1 8 0z"
+                        />
+
+                        <path
+                            d="M7.5 3a.5.5 0 0 1 .5.5v5.21l3.248 1.856a.5.5 0 0 1-.496.868l-3.5-2A.5.5 0 0 1 7 9V3.5a.5.5 0 0 1 .5-.5"
+                        />
+
+                    </svg>
+
+                </button>
+
+            </div>
+
+        </template>
+
+    </django-paged-table>
+
+</div>
+
+
+<!-- ===================== CONFLICT MODAL ===================== -->
+
+<div class="modal fade" id="conflict_modal" tabindex="-1">
+
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+
+        <div class="modal-content">
+
+            <div class="modal-header">
+
+                <h5 class="modal-title text-danger">
+                    Conflicting AIFs
+                </h5>
+
+                <button
+                    type="button"
+                    class="btn-close"
+                    @click="hide_modal('conflict_modal')"
+                ></button>
+
+            </div>
+
+            <div class="modal-body">
+
+                <div
+                    v-if="conflictingRows.length === 0"
+                    class="text-muted"
+                >
+                    No conflicts AIF found to cancel.
+                </div>
+
+                <table
+                    v-else
+                    class="table table-sm table-bordered"
+                >
+
+                    <thead class="table-light">
+
+                        <tr>
+                            <th>AIF ID</th>
+                            <th>Start Date</th>
+                            <th>End Date</th>
+                            <th>Customer</th>
+                            <th>Mercury Code</th>
+                            <th>Promo. ELP</th>
+                        </tr>
+
+                    </thead>
+
+                    <tbody>
+
+                        <tr
+                            v-for="row in conflictingRows"
+                            :key="row.aif_id + row.mercury_code + row.promotional_elp"
+                        >
+
+                            <td>[[ row.aif_id ]]</td>
+                            <td>[[ row.start_date ]]</td>
+                            <td>[[ row.end_date ]]</td>
+                            <td>[[ row.customer || 'ALL' ]]</td>
+                            <td>[[ row.mercury_code ]]</td>
+
+                            <td>
+                                [[
+                                    (parseFloat(row.promotional_elp) || 0).toFixed(2)
+                                ]]
+                            </td>
+
+                        </tr>
+
+                    </tbody>
+
+                </table>
+
+            </div>
+
+            <div class="modal-footer">
+
+                <button
+                    class="btn btn-secondary"
+                    @click="hide_modal('conflict_modal')"
+                >
+                    Close
+                </button>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+
+<!-- ===================== LINE STATUS HISTORY ===================== -->
+
+<div
+    class="modal fade"
+    id="line_status_modal"
+    tabindex="-1"
+>
+
+    <div class="modal-dialog modal-dialog-centered">
+
+        <div class="modal-content">
+
+            <div class="modal-header">
+
+                <h5 class="modal-title">
+                    Line Status History,
+                    Line ID:
+                    <span>[[ selected_line?.id ]]</span>
+                </h5>
+
+                <button
+                    type="button"
+                    class="btn-close"
+                    @click="hide_modal('line_status_modal')"
+                ></button>
+
+            </div>
+
+            <div class="modal-body">
+
+                <ul class="list-group">
+
+                    <template
+                        v-for="status in selected_line?.aif_line_status"
+                    >
+
+                        <li class="list-group-item">
+
+                            <div class="text-body-secondary">
+
+                                <span
+                                    :class="status_format(status.status)"
+                                >
+                                    [[ format_status_label(status.status) ]]
+                                </span>
+
+                                by
+
+                                <span class="fw-medium">
+                                    [[ status.meta_created_by?.first_name ]]
+                                    [[ status.meta_created_by?.last_name ]]
+                                </span>
+
+                                at
+
+                                <span class="fst-italic">
+                                    [[
+                                        new Date(
+                                            status.meta_created_date
+                                        ).toLocaleString()
+                                    ]]
+                                </span>
+
+                            </div>
+
+                            <div v-if="status.comment">
+
+                                <small class="text-body-secondary">
+                                    [[ status.comment ]]
+                                </small>
+
+                            </div>
+
+                        </li>
+
+                    </template>
+
+                </ul>
+
+            </div>
+
+            <div class="modal-footer">
+
+                <button
+                    type="button"
+                    class="btn btn-secondary"
+                    @click="hide_modal('line_status_modal')"
+                >
+                    Close
+                </button>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+
+
+
+
+
+
+
+
+
+
+
 <section id="aif_view" class="no-screen-navigation" data-screen-name="AIF View">
     <div v-if="current_screen === 'aif_view'">
 
