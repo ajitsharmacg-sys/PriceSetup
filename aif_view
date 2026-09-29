@@ -1,2 +1,648 @@
 <section id="aif_view" class="no-screen-navigation" data-screen-name="AIF View">
     <div v-if="current_screen === 'aif_view'">
+
+@click="navigate(nav_state.previous)" to 
+@click="navigate('list_of_aifs')"
+
+
+<div class="d-flex justify-content-between align-items-top flex-wrap">
+
+    <div class="p-1 flex-grow-1 min-vw-25 mw-50">
+
+        <vertical-table
+            :api_endpoint="get_url"
+            :columns="header_columns"
+            v-model:data_refresh_trigger="update_triggered"
+            :custom_format="custom_format"
+            @on-item-update="(item) => { this.selected_aif = item; }">
+
+            <template #actions="actionProps">
+
+                <tr v-if="actionProps?.aif_status !== 'CLOSED'">
+
+                    <th>AIF Level Actions</th>
+
+                    <td>
+                        <div class="btn-group">
+
+                            <template
+                                v-for="choice in get_status_choices()"
+                            >
+                                <button
+                                    type="button"
+                                    :class="get_display_action(choice).button_class"
+                                    @click="
+                                        aif_target_status = choice;
+                                        show_aif_status_update = true;
+                                    "
+                                >
+                                    [[ get_display_action(choice).button_text ]]
+                                </button>
+                            </template>
+
+                            <button
+                                v-if="['DRAFT', 'INVALID'].includes(actionProps?.aif_status)"
+                                type="button"
+                                class="btn btn-sm btn-primary"
+                                @click="navigate('aif_app', 'edit')"
+                            >
+                                Edit
+                            </button>
+
+                        </div>
+                    </td>
+
+                </tr>
+
+                <tr v-if="actionProps?.aif_status === 'PLANNED'">
+
+                    <th>Line Level Actions</th>
+
+                    <td>
+
+                        <div
+                            v-if="selected_lines.length > 0"
+                            class="btn-group"
+                        >
+
+                            <template
+                                v-for="choice in multiple_line_status_choices()"
+                            >
+                                <button
+                                    type="button"
+                                    :class="get_line_display_action(choice).button_class"
+                                    @click="
+                                        line_target_status = choice;
+                                        show_line_status_update = true;
+                                    "
+                                >
+                                    [[ get_line_display_action(choice).button_text ]]
+                                </button>
+                            </template>
+
+                        </div>
+
+                        <div
+                            v-else
+                            class="alert alert-primary mb-0"
+                        >
+                            <p class="mb-0">
+                                Please select one or multiple line(s) to see
+                                available actions.
+                            </p>
+                        </div>
+
+                    </td>
+
+                </tr>
+
+            </template>
+
+        </vertical-table>
+
+    </div>
+
+    <div class="p-1 flex-grow-1 min-vw-25 mw-100">
+
+        <div class="container-fluid">
+
+            <status-history
+                :api_endpoint="aif_status_history_url"
+                v-model:data_refresh_trigger="update_triggered"
+                :custom_format="custom_format?.aif_status">
+            </status-history>
+
+        </div>
+
+    </div>
+
+Remove:
+<table class="table table-sm table-bordered">
+
+page_items()
+filtered_items()
+n_of_pages()
+pages()
+
+<div class="mt-4">
+
+    <django-paged-table
+        ref="lineTable"
+        :api_endpoint="api_endpoints.aif_lines"
+        :columns="line_columns"
+        :fixed_query_filter="line_filter"
+        title="AIF Lines"
+        :filter_items="line_filter_items"
+        :row_select_active="true"
+        v-model:data_refresh_trigger="update_triggered"
+        :custom_format="custom_format"
+        @row-select="(item, index) => { selected_lines.push(item); }"
+        @row-unselect="(item, index) => {
+            const indexToRemove = selected_lines.indexOf(item);
+            if (indexToRemove !== -1) {
+                selected_lines.splice(indexToRemove, 1);
+            }
+        }"
+        @export-excel="(items) => { export_to_excel(items); }"
+    >
+
+        <template #actions="actionProps">
+
+            <div class="btn-group">
+
+                <button
+                    type="button"
+                    class="btn btn-secondary"
+                    @click="
+                        selected_line = actionProps;
+                        show_line_history = true;
+                    "
+                    title="See Line Status History"
+                >
+                    <i class="bi bi-clock-history"></i>
+                </button>
+
+            </div>
+
+        </template>
+
+    </django-paged-table>
+
+</div>
+
+
+Remove nav_state: init_nav_state,
+
+current_screen: current_screen,
+nav_context: nav_context,
+
+
+selected_lines: [],
+selected_line: {},
+
+aif_target_status: null,
+line_target_status: null,
+
+show_aif_status_update: false,
+show_line_status_update: false,
+show_line_history: false,
+
+comment: null,
+
+update_triggered: false,
+
+
+data() {
+    return {
+        current_screen: current_screen,
+        nav_context: nav_context,
+
+        dialog: dialog,
+
+        AIF_STATUS_GRAPH: AIF_STATUS_GRAPH,
+        AIF_LINE_STATUS_GRAPH: AIF_LINE_STATUS_GRAPH,
+        LINE_STATUS_TO_ROLE: LINE_STATUS_TO_ROLE,
+        AIF_STATUS_TO_ROLE: AIF_STATUS_TO_ROLE,
+
+        aif_id: "{{ aif_id|escapejs }}",
+
+        selected_aif: selected_aif,
+        selected_line: {},
+
+        selected_lines: [],
+
+        aif_target_status: null,
+        line_target_status: null,
+
+        show_aif_status_update: false,
+        show_line_status_update: false,
+        show_line_history: false,
+
+        comment: null,
+
+        update_triggered: false,
+
+        header_columns: [
+            "aif_id",
+            "nso",
+            "local_currency",
+            "exchange_rate",
+            "is_all_nso_enabled",
+            "start_date",
+            "end_date",
+            "promotion_campaign",
+            "promotion_category",
+            "promotion_activity",
+            "aif_cancel_numbers",
+            "email_cc"
+        ],
+
+        line_columns: [
+            "id",
+            "product_group",
+            "mercury_code",
+            "product_description",
+            "elp_eur",
+            "elp",
+            "promotional_qty",
+            "promotional_elp",
+            "promotional_elp_eur",
+            "promotion_support",
+            "support_per_unit",
+            "promotion_support_eur",
+            "line_value",
+            "line_value_eur",
+            "aif_line_status"
+        ],
+
+        user_role: USER_ROLE,
+        admin_role: ADMIN_ROLE,
+
+        aif_approvers: aif_approvers,
+
+        options: options,
+
+        isLoading: false,
+        downloadStep: "",
+
+        conflictingRows: [],
+        conflictPopupShown: false
+    };
+},
+
+endpoints: {
+    aif: api_endpoints.aif,
+    aif_status: api_endpoints.aif_status,
+    aif_lines: api_endpoints.aif_lines,
+    aif_line_status: api_endpoints.aif_line_status,
+    aif_customer_line: api_endpoints.aif_customer_line
+},
+
+get_url() {
+    return this.endpoints.aif + this.selected_aif?.aif_id + "/";
+},
+
+line_filter() {
+    return "&aif=" + this.selected_aif?.aif_id;
+},
+
+aif_status_history_url() {
+    return this.endpoints.aif_status +
+        "?aif=" + this.selected_aif?.aif_id;
+},
+
+line_status_history_url() {
+    return this.endpoints.aif_line_status +
+        "?aif_line=" + this.selected_line?.id;
+},
+
+
+line_filter_items() {
+    return [
+        {
+            label: "Awaiting Approval",
+            expression: "&aif_line_status=AWAITING_APPROVAL"
+        },
+        {
+            label: "Approved",
+            expression: "&aif_line_status=APPROVED"
+        },
+        {
+            label: "Rejected",
+            expression: "&aif_line_status=REJECTED"
+        },
+        {
+            label: "Closed",
+            expression: "&aif_line_status=CLOSED"
+        }
+    ];
+},
+
+
+custom_format() {
+    return {
+        aif_status: {
+            DRAFT: "text-bg-secondary",
+            PLANNED: "text-bg-warning",
+            COMMERCIALLY_APPROVED: "text-bg-warning",
+            AWAITING_VALIDATION: "text-bg-warning",
+            INVALID: "text-bg-danger",
+            CLOSED: "text-bg-success"
+        },
+
+        aif_line_status: {
+            DRAFT: "text-bg-secondary",
+            AWAITING_APPROVAL: "text-bg-warning",
+            APPROVED: "text-bg-success",
+            REJECTED: "text-bg-danger",
+            CLOSED: "text-bg-success"
+        }
+    };
+},
+
+
+
+<modal-dialog v-model="show_aif_status_update">
+
+    <template #header>
+        <h5 class="modal-title">Action</h5>
+    </template>
+
+    <template #body>
+
+        <div class="d-flex flex-column">
+
+            <h5>
+                [[ get_display_message(aif_target_status) ]]
+            </h5>
+
+            <div class="p-2">
+
+                <label
+                    for="aif_status_comment"
+                    class="form-label"
+                >
+                    Comment
+                </label>
+
+                <input
+                    type="text"
+                    autocomplete="off"
+                    maxlength="300"
+                    id="aif_status_comment"
+                    class="form-control"
+                    v-model="comment"
+                >
+
+            </div>
+
+            <div class="p-2">
+
+                <label
+                    class="form-label"
+                    for="aif_status_update_attachment"
+                >
+                    Attachments (optional)
+                </label>
+
+                <input
+                    type="file"
+                    class="form-control"
+                    id="aif_status_update_attachment"
+                    accept="image/*, application/pdf"
+                    multiple
+                >
+
+            </div>
+
+        </div>
+
+    </template>
+
+    <template #footer>
+
+        <button
+            type="button"
+            class="btn btn-secondary"
+            @click="show_aif_status_update = false"
+        >
+            Cancel
+        </button>
+
+        <button
+            type="button"
+            class="btn btn-primary"
+            @click="update_aif_status()"
+        >
+            Confirm
+        </button>
+
+    </template>
+
+</modal-dialog>
+
+
+<modal-dialog v-model="show_line_status_update">
+
+    <template #header>
+        <h5 class="modal-title">Action</h5>
+    </template>
+
+    <template #body>
+
+        <div class="d-flex flex-column">
+
+            <h5>
+                [[ line_status_update_message() ]]
+            </h5>
+
+            <div class="p-2">
+
+                <label class="form-label">
+                    Comment
+                </label>
+
+                <input
+                    type="text"
+                    autocomplete="off"
+                    maxlength="300"
+                    class="form-control"
+                    v-model="comment"
+                >
+
+            </div>
+
+            <div class="p-2">
+
+                <label
+                    class="form-label"
+                    for="aif_line_status_update_attachment"
+                >
+                    Attachments (optional)
+                </label>
+
+                <input
+                    type="file"
+                    class="form-control"
+                    id="aif_line_status_update_attachment"
+                    accept="image/*, application/pdf"
+                    multiple
+                >
+
+            </div>
+
+        </div>
+
+    </template>
+
+    <template #footer>
+
+        <button
+            type="button"
+            class="btn btn-secondary"
+            @click="show_line_status_update = false"
+        >
+            Cancel
+        </button>
+
+        <button
+            type="button"
+            class="btn btn-primary"
+            @click="update_line_status()"
+        >
+            Confirm
+        </button>
+
+    </template>
+
+</modal-dialog>
+
+
+
+<modal-dialog v-model="show_line_history">
+
+    <template #header>
+        <h5 class="modal-title">
+            Line Status History
+        </h5>
+    </template>
+
+    <template #body>
+
+        <status-history
+            v-if="show_line_history"
+            :api_endpoint="line_status_history_url"
+            :custom_format="custom_format?.aif_line_status">
+        </status-history>
+
+    </template>
+
+</modal-dialog>
+
+
+
+async update_aif_status() {
+
+    this.show_aif_status_update = false;
+
+    this.show_notification(
+        "Updating AIF status, please wait..."
+    );
+
+    await postData(
+        this.endpoints.aif_status,
+        {
+            aif: this.selected_aif.aif_id,
+            status: this.aif_target_status,
+            comment: this.comment
+        }
+    )
+    .then(response => {
+
+        if (response.ok) {
+            return response.json();
+        }
+
+        return Promise.reject(response);
+
+    })
+    .then(() => {
+
+        this.upload_file(
+            "aif_status_update_attachment",
+            "_status_update_"
+        );
+
+        this.show_notification(
+            "AIF status has been updated."
+        );
+
+        this.update_triggered = true;
+
+        this.comment = null;
+        this.aif_target_status = null;
+
+    })
+    .catch(error_response => {
+
+        this.display_error(error_response);
+
+    });
+},
+
+
+
+
+async update_line_status() {
+
+    this.show_line_status_update = false;
+
+    let error_occurred = false;
+
+    for (const line of this.selected_lines) {
+
+        this.show_notification(
+            "Updating status of line: " + line.id
+        );
+
+        await postData(
+            this.endpoints.aif_line_status,
+            {
+                aif_line: line.id,
+                status: this.line_target_status,
+                comment: this.comment
+            }
+        )
+        .then(response => {
+
+            if (response.ok) {
+                return response.json();
+            }
+
+            return Promise.reject(response);
+
+        })
+        .catch(error => {
+
+            error_occurred = true;
+
+            this.display_error(error);
+
+        });
+
+        if (error_occurred) {
+            break;
+        }
+    }
+
+    if (!error_occurred) {
+
+        await this.upload_file(
+            "aif_line_status_update_attachment"
+        );
+
+        this.update_triggered = true;
+
+        this.selected_lines = [];
+
+        this.comment = null;
+
+        this.line_target_status = null;
+
+        this.show_notification(
+            "Selected AIF line(s) updated successfully."
+        );
+    }
+},
+
+
+
+aif_line: line.id
+
+
+navigate(id, context = null) {
+    this.nav_context.context = context;
+    this.current_screen = id;
+},
+
+</div>
