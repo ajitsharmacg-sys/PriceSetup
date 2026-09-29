@@ -1,3 +1,123 @@
+computed: {
+
+    get_url() {
+        return api_endpoints.aif +
+            this.selected_aif?.aif_id +
+            "/";
+    },
+
+    customer_filter() {
+        return "&aif=" +
+            this.selected_aif?.aif_id;
+    },
+
+    line_filter() {
+        return "&aif=" +
+            this.selected_aif?.aif_id;
+    },
+
+    aif_status_history_url() {
+        return api_endpoints.aif_status +
+            "?aif=" +
+            this.selected_aif?.aif_id;
+    },
+
+    custom_format() {
+        return {
+            aif_status: {
+                DRAFT: "text-bg-secondary",
+                PLANNED: "text-bg-warning",
+                COMMERCIALLY_APPROVED: "text-bg-warning",
+                AWAITING_VALIDATION: "text-bg-warning",
+                INVALID: "text-bg-danger",
+                REJECTED: "text-bg-danger",
+                CLOSED: "text-bg-success"
+            },
+
+            aif_line_status: {
+                DRAFT: "text-bg-secondary",
+                AWAITING_APPROVAL: "text-bg-warning",
+                APPROVED: "text-bg-success",
+                REJECTED: "text-bg-danger"
+            }
+        };
+    },
+
+    aif_status() {
+        return this.selected_aif?.aif_status?.toSorted((b, a) => {
+            if (a.meta_created_date < b.meta_created_date) {
+                return -1;
+            }
+
+            if (a.meta_created_date > b.meta_created_date) {
+                return 1;
+            }
+
+            return 0;
+        })[0]?.status;
+    },
+
+    promoValue() {
+        return (this.selected_aif?.aif_lines || []).reduce(
+            (sum, line) =>
+                sum + (parseFloat(line.line_value) || 0),
+            0
+        ).toFixed(2);
+    },
+
+    promoValueEuro() {
+        return (this.selected_aif?.aif_lines || []).reduce(
+            (sum, line) =>
+                sum + (parseFloat(line.line_value_eur) || 0),
+            0
+        ).toFixed(2);
+    },
+
+    canSelectAnyLine() {
+        if (!this.selected_aif?.aif_lines?.length) {
+            return false;
+        }
+
+        if (this.user_role.includes(this.admin_role)) {
+            return true;
+        }
+
+        return this.selected_aif.aif_lines.some(line =>
+            this.get_line_status(line)?.status === "AWAITING_APPROVAL" &&
+            this.canActOnLine(line)
+        );
+    },
+
+    line_filter_items() {
+        return [
+            {
+                label: "Awaiting Approval",
+                expression: "&aif_line_status=AWAITING_APPROVAL"
+            },
+            {
+                label: "Approved",
+                expression: "&aif_line_status=APPROVED"
+            },
+            {
+                label: "Rejected",
+                expression: "&aif_line_status=REJECTED"
+            }
+        ];
+    }
+},
+
+
+
+
+
+
+
+
+
+
+
+
+
 <!-- ===================== HEADER ===================== -->
 <div class="row g-4">
 
