@@ -1,3 +1,80 @@
+data() {
+    return {
+        dialog: dialog,
+        AIF_STATUS_GRAPH: AIF_STATUS_GRAPH,
+        AIF_LINE_STATUS_GRAPH: AIF_LINE_STATUS_GRAPH,
+        LINE_STATUS_TO_ROLE: LINE_STATUS_TO_ROLE,
+        AIF_STATUS_TO_ROLE: AIF_STATUS_TO_ROLE,
+
+        aif_id: "{{ aif_id|escapejs }}",
+        selected_aif: selected_aif,
+        selected_line: selected_line,
+
+        search_text: null,
+        selected_page: 0,
+        n_of_lines: 5,
+
+        header_columns: [
+            "aif_id",
+            "nso",
+            "local_currency",
+            "exchange_rate",
+            "is_all_nso_enabled",
+            "start_date",
+            "end_date",
+            "promotion_campaign",
+            "promotion_category",
+            "promotion_activity",
+            "aif_cancel_numbers",
+            "email_cc"
+        ],
+
+        options: options,
+
+        line_columns: [
+            "product_group",
+            "mercury_code",
+            "product_description",
+            "elp_eur",
+            "elp",
+            "promotional_qty",
+            "promotional_elp",
+            "promotional_elp_eur",
+            "promotion_support",
+            "support_per_unit",
+            "promotion_support_eur",
+            "line_value",
+            "line_value_eur"
+        ],
+
+        webedi_header: [...],
+        webedi_lines: [...],
+
+        filter_fields: ["id", "product_group", "mercury_code"],
+
+        user_role: USER_ROLE,
+        admin_role: ADMIN_ROLE,
+
+        checked_lines: checked_lines,
+        aif_approvers: aif_approvers,
+
+        ws_data: [],
+        isLoading: false,
+        downloadStep: "",
+        conflictingRows: [],
+        conflictPopupShown: false,
+    }
+},
+
+
+
+
+
+
+
+
+
+
 computed: {
 
     get_url() {
