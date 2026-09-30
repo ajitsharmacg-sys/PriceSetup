@@ -1,3 +1,28 @@
+customer_columns: [
+    "oracle_cust_number",
+    "oracle_cust_name"
+],
+
+@row-select="
+    (item, index) => {
+        if (canActOnLine(item)) {
+            selected_lines.push(item);
+        }
+    }
+"
+
+@row-unselect="
+    (item, index) => {
+        const indexToRemove = selected_lines.indexOf(item);
+
+        if (indexToRemove !== -1) {
+            selected_lines.splice(indexToRemove, 1);
+        }
+    }
+"
+
+
+
 <div class="row align-items-center mb-3">
 
     <div class="col-md-1">
