@@ -1,3 +1,16 @@
+get_status_choices(aif) {
+    if (!aif?.aif_status) {
+        return [];
+    }
+
+    console.log("AIF ACTION PROPS RECEIVED:", aif);
+
+    const roles = this.AIF_STATUS_TO_ROLE[aif.aif_status];
+
+    ...
+}
+
+
 
 aif_status() {
     return this.selected_aif?.aif_status || "";
