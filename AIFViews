@@ -1,3 +1,25 @@
+async load_aif() {
+    console.log("ENTERED load_aif()");
+    console.log("AIF ID:", this.aif_id);
+
+    await fetch(api_endpoints.aif + this.aif_id + "/")
+        .then(response => {
+            console.log("AIF API RESPONSE:", response.status);
+            return response.json();
+        })
+        .then(data => {
+            console.log("AIF API DATA:", data);
+            this.selected_aif = data;
+        })
+        .catch(error => {
+            console.error("AIF API ERROR:", error);
+        });
+
+    console.log("AFTER load_aif API");
+    
+    // keep your existing remaining code here
+}
+
 get_status_choices(aif) {
     if (!aif?.aif_status) {
         return [];
