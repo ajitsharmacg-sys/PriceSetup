@@ -1,3 +1,19 @@
+console.log("========== LOAD AIF COMPLETED ==========");
+console.log("selected_aif:", this.selected_aif);
+console.log("aif_id:", this.aif_id);
+console.log("current_screen:", this.current_screen);
+
+console.log("HEADER LOADED");
+
+await ... // existing line loading lines
+console.log("LINES LOADED");
+
+await ... // existing line loading customer lines
+console.log("CUSTOMER LINES LOADED");
+
+
+
+
 async load_aif() {
     console.log("ENTERED load_aif()");
     console.log("AIF ID:", this.aif_id);
