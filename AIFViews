@@ -1,4 +1,7 @@
 
+aif_status() {
+    return this.selected_aif?.aif_status || "";
+},
 get_status_choices(aif) {
     console.log("AIF STATUS:", aif?.aif_status);
     console.log("AIF STATUS TO ROLE:", this.AIF_STATUS_TO_ROLE);
