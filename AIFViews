@@ -1,3 +1,36 @@
+<modal-dialog v-model="show_line_history">
+
+    <template #header>
+        <h5 class="modal-title">
+            Line Status History
+        </h5>
+    </template>
+
+    <template #body>
+        <status-history
+            v-if="show_line_history"
+            :api_endpoint="line_status_history_url"
+            :custom_format="custom_format?.aif_line_status">
+        </status-history>
+    </template>
+
+</modal-dialog>
+
+line_status_history_url() {
+    return (
+        api_endpoints.aif_line_status +
+        "?line=" +
+        this.selected_line?.id
+    );
+},
+
+selected_line = actionProps;
+show_line_history = true;
+
+
+
+
+
 customer_columns: [
     "oracle_cust_number",
     "oracle_cust_name"
