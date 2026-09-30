@@ -1,0 +1,10 @@
+<div class="p-1">
+    <django-paged-table
+        :api_endpoint="api_endpoints.aif_customer_line"
+        :columns="customer_columns"
+        :fixed_query_filter="customer_filter"
+        title="Customer Details"
+        :custom_format="custom_format"
+        v-model:data_refresh_trigger="update_triggered">
+    </django-paged-table>
+</div>
