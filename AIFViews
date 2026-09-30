@@ -1,3 +1,21 @@
+watch: {
+    nav_context: {
+        async handler(newVal, oldVal) {
+            if (this.current_screen === "aif_view") {
+                this.selected_lines = [];
+
+                this.aif_id = this.selected_aif?.aif_id || "";
+
+                if (this.aif_id) {
+                    await this.load_aif();
+                }
+            }
+        },
+        deep: true,
+    },
+},
+
+
 if (this.nav_context.context === "template") {
     this.selected_aif.aif_id = null;
 
