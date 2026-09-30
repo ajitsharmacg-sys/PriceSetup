@@ -11,7 +11,17 @@ if (this.nav_context.context === "template") {
 }
 
 
+.then(data => {
+    this.selected_aif["aif_lines"] = Array.isArray(data)
+        ? data
+        : (data.results || []);
+})
 
+.then(data => {
+    this.selected_aif["aif_customer_lines"] = Array.isArray(data)
+        ? data
+        : (data.results || []);
+})
 
 
 created() {
