@@ -1,3 +1,18 @@
+if (this.nav_context.context === "template") {
+    this.selected_aif.aif_id = null;
+
+    this.customer_lines.forEach(line => {
+        line.id = null;
+    });
+
+    this.lines.forEach(line => {
+        line.id = null;
+    });
+}
+
+
+
+
 
 created() {
     // Get AIF ID from selected AIF when navigating from list
