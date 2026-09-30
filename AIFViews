@@ -8,3 +8,11 @@
         v-model:data_refresh_trigger="update_triggered">
     </django-paged-table>
 </div>
+
+<div class="p-1 mt-3">
+    <status-history
+        :api_endpoint="aif_status_history_url"
+        v-model:data_refresh_trigger="update_triggered"
+        :custom_format="custom_format?.aif_status">
+    </status-history>
+</div>
