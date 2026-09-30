@@ -1,3 +1,35 @@
+
+get_status_choices(aif) {
+    console.log("AIF STATUS:", aif?.aif_status);
+    console.log("AIF STATUS TO ROLE:", this.AIF_STATUS_TO_ROLE);
+
+    if (!aif?.aif_status) {
+        return [];
+    }
+
+    const roles = this.AIF_STATUS_TO_ROLE[aif.aif_status];
+
+    if (!Array.isArray(roles)) {
+        console.log("No role mapping for:", aif.aif_status);
+        return [];
+    }
+
+    let has_permission = false;
+
+    for (const role of roles) {
+        if (this.user_role.includes(role)) {
+            has_permission = true;
+        }
+    }
+
+    if (has_permission) {
+        return this.AIF_STATUS_GRAPH[aif.aif_status] || [];
+    }
+
+    return [];
+}
+
+
 watch: {
     nav_context: {
         async handler(newVal, oldVal) {
