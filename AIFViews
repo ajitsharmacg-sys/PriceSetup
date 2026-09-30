@@ -1,3 +1,45 @@
+<div class="container-fluid mt-5">
+
+    <django-paged-table
+        ref="lineTable"
+        :api_endpoint="api_endpoints.aif_lines"
+        :columns="line_columns"
+        :fixed_query_filter="line_filter"
+        title="AIF Lines"
+        :filter_items="line_filter_items"
+        :row_select_active="true"
+        v-model:data_refresh_trigger="update_triggered"
+        :custom_format="custom_format">
+
+        <template #actions="actionProps">
+
+            <div class="btn-group">
+
+                <button
+                    type="button"
+                    class="btn btn-secondary"
+                    title="See Line Status History"
+                    @click="
+                        selected_line = actionProps;
+                        show_line_history = true;
+                    ">
+
+                    <!-- existing history SVG -->
+
+                </button>
+
+            </div>
+
+        </template>
+
+    </django-paged-table>
+
+</div>
+
+=================================
+
+
+
 
 <vertical-table
     :api_endpoint="get_url"
