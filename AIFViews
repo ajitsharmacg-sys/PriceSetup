@@ -1,3 +1,87 @@
+
+<vertical-table
+    :api_endpoint="get_url"
+    :columns="header_columns"
+    v-model:data_refresh_trigger="update_triggered"
+    :custom_format="custom_format"
+    @on-item-update="
+        (item) => {
+            selected_aif = item;
+        }">
+
+    <template #actions="actionProps">
+
+        <!-- AIF Level Actions -->
+        <tr v-if="actionProps?.aif_status !== 'CLOSED'">
+            <th>AIF Level Actions</th>
+            <td>
+                <div class="btn-group">
+
+                    <template v-for="choice in get_status_choices()">
+                        <button
+                            type="button"
+                            :class="get_display_action(choice).button_class"
+                            @click="show_modal('modal_' + choice)">
+                            [[ get_display_action(choice).button_text ]]
+                        </button>
+                    </template>
+
+                    <button
+                        v-if="['DRAFT', 'INVALID'].includes(actionProps?.aif_status)"
+                        type="button"
+                        class="btn btn-sm btn-primary"
+                        @click="navigate('aif_app', 'edit')">
+                        Edit
+                    </button>
+
+                </div>
+            </td>
+        </tr>
+
+        <!-- Line Level Actions -->
+        <tr v-if="actionProps?.aif_status === 'PLANNED'">
+            <th>Line Level Actions</th>
+            <td>
+                <div
+                    v-if="selected_lines.length > 0"
+                    class="btn-group">
+
+                    <template
+                        v-for="choice in multiple_line_status_choices()">
+
+                        <button
+                            type="button"
+                            :class="get_line_display_action(choice).button_class"
+                            @click="show_modal('line_modal_' + choice)">
+                            [[ get_line_display_action(choice).button_text ]]
+                        </button>
+
+                    </template>
+
+                </div>
+
+                <div v-else class="alert alert-primary mb-0">
+                    Please select one or multiple line(s) to see
+                    available actions.
+                </div>
+            </td>
+        </tr>
+
+    </template>
+
+</vertical-table>
+
+
+
+
+
+
+
+
+
+
+
+
 <div class="p-1">
     <django-paged-table
         :api_endpoint="api_endpoints.aif_customer_line"
