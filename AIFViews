@@ -1,3 +1,20 @@
+
+created() {
+    // Get AIF ID from selected AIF when navigating from list
+    this.aif_id = this.selected_aif?.aif_id || this.aif_id;
+
+    console.log("AIF ID =", this.aif_id);
+
+    if (this.aif_id) {
+        this.load_aif();
+    }
+
+    loadOptions(api_endpoints.aif_lines)
+        .then(data => {
+            this.aif_line_options = data;
+        });
+},
+
 await fetch(api_endpoints.aif_customer_line + "?aif=" + this.aif_id)
     .then(response => response.json())
     .then(data => {
