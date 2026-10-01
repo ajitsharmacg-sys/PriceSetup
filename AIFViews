@@ -1,3 +1,7 @@
+"You are not authorized to perform this action."
+
+"You are not the assigned approver for this product group."
+
 canActOnLine(line) {
 
     const currentStatus = this.selected_aif?.aif_status;
