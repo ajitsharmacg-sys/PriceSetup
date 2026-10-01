@@ -1,3 +1,13 @@
+@row-select="
+    (item, index) => {
+        if (canActOnLine(item)) {
+            selected_lines.push(item);
+        } else {
+            this.$refs.lineTable.selected_rows.delete(index);
+        }
+    }"
+
+
 canActOnLine(line) {
 
     const isPSBDUser = this.user_role.includes("PSBD");
