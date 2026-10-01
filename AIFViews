@@ -1,5 +1,7 @@
 aif_cancel_numbers = serializers.SerializerMethodField()
 
+aif_cancel_numbers = serializers.SerializerMethodField()
+
 def get_aif_cancel_numbers(self, obj):
     if not obj.aif_cancel_numbers:
         return ""
