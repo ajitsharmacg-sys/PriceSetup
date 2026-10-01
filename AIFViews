@@ -1,3 +1,6 @@
+ordering_fields = "__all__"
+ordering = ("id",)
+
 class AifLineView(viewsets.ModelViewSet):
     permission_classes = [IsApplicationUser]
     queryset = AIFLines.objects.all().order_by("id")
