@@ -1,3 +1,32 @@
+canActOnLine(line) {
+
+    // Admin can always act
+    if (this.user_role.includes(this.admin_role)) {
+        return true;
+    }
+
+    const isPSBDUser = this.user_role.includes("PSBD");
+    const isPlanned = this.selected_aif?.aif_status === "PLANNED";
+
+    // Only PSBD users in PLANNED status need approver validation
+    if (isPSBDUser && isPlanned) {
+
+        const userEmail = "{{ request.user.email|escapejs }}";
+
+        return aif_approvers.value.some(item =>
+            item.product_group === line.product_group &&
+            item.responsibility === "PSBD" &&
+            item.approver?.email === userEmail
+        );
+    }
+
+    // All other users/statuses
+    return true;
+},
+
+
+
+
 @click="aif_target_status = choice; show_aif_status_update = true;"
 
 <modal-dialog v-model="show_aif_status_update">
