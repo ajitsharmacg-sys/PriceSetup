@@ -1,3 +1,5 @@
+@click="aif_target_status = choice; show_aif_status_update = true;"
+
 <modal-dialog v-model="show_aif_status_update">
 
     <template #header>
