@@ -38,6 +38,21 @@ def get_line_value_display(self, obj):
 def get_line_value_eur_display(self, obj):
     return self.format_amount(obj.line_value_eur)
 
+line_columns: [
+    "product_group",
+    "mercury_code",
+    "product_description",
+    "elp_display",
+    "elp_eur_display",
+    "promotional_qty",
+    "promotional_elp_display",
+    "promotional_elp_eur_display",
+    "promotion_support_display",
+    "support_per_unit",
+    "promotion_support_eur_display",
+    "line_value_display",
+    "line_value_eur_display"
+]
 
 
 aif_cancel_numbers = serializers.SerializerMethodField()
