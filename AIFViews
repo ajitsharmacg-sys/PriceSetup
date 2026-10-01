@@ -1,3 +1,146 @@
+<modal-dialog v-model="show_aif_status_update">
+
+    <template #header>
+        <h5 class="modal-title">Action</h5>
+    </template>
+
+    <template #body>
+        <div class="d-flex flex-column">
+
+            <h5>
+                [[ get_display_message(aif_target_status) ]]
+            </h5>
+
+            <div class="p-2">
+                <label for="aif_status_comment" class="form-label">
+                    Comment
+                </label>
+
+                <input
+                    type="text"
+                    autocomplete="off"
+                    maxlength="300"
+                    id="aif_status_comment"
+                    class="form-control"
+                    v-model="comment">
+            </div>
+
+            <div class="p-2">
+                <label
+                    class="form-label"
+                    for="aif_status_update_attachment">
+                    Attachments (optional)
+                </label>
+
+                <input
+                    type="file"
+                    class="form-control"
+                    id="aif_status_update_attachment"
+                    accept="image/*, application/pdf"
+                    multiple>
+            </div>
+
+        </div>
+    </template>
+
+    <template #footer>
+        <button
+            type="button"
+            class="btn btn-secondary"
+            @click="show_aif_status_update = false">
+            Cancel
+        </button>
+
+        <button
+            type="button"
+            class="btn btn-primary"
+            @click="update_aif_status()">
+
+            Confirm
+
+            <span
+                class="spinner-border spinner-border-sm"
+                role="status"
+                v-if="refreshing">
+            </span>
+
+        </button>
+    </template>
+
+</modal-dialog>
+
+aif_target_status: null,
+show_aif_status_update: false,
+refreshing: false,
+
+
+get_display_message(choice_value) {
+    switch (choice_value) {
+        case "PLANNED":
+            return "Would you like to submit the AIF?";
+
+        case "AWAITING_VALIDATION":
+            return "Please confirm the successful setup of the AIF.";
+
+        case "CLOSED":
+            return "Please confirm that AIF setup is validated successfully.";
+
+        case "INVALID":
+            return "Please confirm that you want to reject the request.";
+
+        default:
+            return "Would you like to change AIF status to " + choice_value + "?";
+    }
+},
+
+
+async update_aif_status() {
+
+    this.show_aif_status_update = false;
+    this.refreshing = true;
+
+    await postData(api_endpoints.aif_status, {
+        aif: this.selected_aif.aif_id,
+        status: this.aif_target_status,
+        comment: this.comment
+    })
+    .then(response => {
+        if (response.ok) {
+            return response.json();
+        }
+
+        return Promise.reject(response);
+    })
+    .then(new_status => {
+
+        this.upload_file("aif_status_update_attachment");
+
+        this.update_triggered = true;
+        this.selected_lines = [];
+
+        this.comment = null;
+        this.aif_target_status = null;
+        this.refreshing = false;
+
+    })
+    .catch(error_response => {
+
+        this.refreshing = false;
+        this.display_error(error_response);
+
+    });
+},
+
+
+
+
+
+
+
+
+
+
+
 ordering_fields = "__all__"
 ordering = ("id",)
 
