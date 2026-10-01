@@ -1,3 +1,25 @@
+class AifLineView(viewsets.ModelViewSet):
+    permission_classes = [IsApplicationUser]
+    queryset = AIFLines.objects.all().order_by("id")
+    serializer_class = AifLineWriteSerializer
+    pagination_class = StandardPagination
+
+    filter_backends = [
+        DjangoFilterBackend,
+        filters.SearchFilter,
+        filters.OrderingFilter,
+    ]
+
+    filterset_fields = {"aif": ["exact"]}
+
+    def get_serializer_class(self):
+        if self.action in ["create", "update", "partial_update", "destroy"]:
+            return AifLineWriteSerializer
+        return AifLineReadSerializer
+
+
+
+
 elp_display = serializers.SerializerMethodField()
 elp_eur_display = serializers.SerializerMethodField()
 promotional_elp_display = serializers.SerializerMethodField()
