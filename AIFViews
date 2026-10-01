@@ -1,3 +1,50 @@
+canActOnLine(line) {
+
+    const currentStatus = this.selected_aif?.aif_status;
+    const allowedRoles = this.AIF_STATUS_TO_ROLE[currentStatus] || [];
+
+    // 1. Admin can act on any line
+    if (this.user_role.includes(this.admin_role)) {
+        return true;
+    }
+
+    // 2. Check whether user belongs to a role allowed for this status
+    const belongsToAllowedRole = allowedRoles.some(role =>
+        this.user_role.includes(role)
+    );
+
+    if (belongsToAllowedRole) {
+
+        // 3. PSBD user needs product-group approver validation
+        if (
+            currentStatus === "PLANNED" &&
+            this.user_role.includes("PSBD_TEAM_USER")
+        ) {
+            const userEmail = "{{ request.user.email|escapejs }}";
+
+            const canAct = aif_approvers.value.some(item =>
+                item.product_group === line.product_group &&
+                item.responsibility === "PSBD" &&
+                item.approver?.email === userEmail
+            );
+
+            if (!canAct) {
+                this.show_notification_dialog = true;
+                this.notification_message =
+                    "This line cannot be approved or rejected because you are not the assigned PSBD approver for this product group.";
+
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    // 4. User does not belong to an allowed role
+    return false;
+},
+
+
 @click="line_target_status = choice; show_line_status_update = true;"
 
 <modal-dialog v-model="show_line_status_update">
