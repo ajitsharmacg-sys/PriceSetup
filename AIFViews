@@ -1,3 +1,14 @@
+if not is_role_allowed_for_line_status(
+    user_roles=user_roles,
+    target_status=current_status.status,
+):
+    raise PermissionDenied(
+        "You are not allowed to perform "
+        "this line status transition."
+    )
+
+
+
 "You are not authorized to perform this action."
 
 "You are not the assigned approver for this product group."
