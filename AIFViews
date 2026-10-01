@@ -1,26 +1,31 @@
 canActOnLine(line) {
 
-    // Admin can always act
-    if (this.user_role.includes(this.admin_role)) {
-        return true;
-    }
-
     const isPSBDUser = this.user_role.includes("PSBD");
     const isPlanned = this.selected_aif?.aif_status === "PLANNED";
 
-    // Only PSBD users in PLANNED status need approver validation
+    // PSBD user + PLANNED AIF -> check approver
     if (isPSBDUser && isPlanned) {
 
         const userEmail = "{{ request.user.email|escapejs }}";
 
-        return aif_approvers.value.some(item =>
+        const canAct = aif_approvers.value.some(item =>
             item.product_group === line.product_group &&
             item.responsibility === "PSBD" &&
             item.approver?.email === userEmail
         );
+
+        if (!canAct) {
+            this.show_notification_dialog = true;
+            this.notification_message =
+                "This line cannot be approved or rejected because you are not the assigned PSBD approver for this product group.";
+
+            return false;
+        }
+
+        return true;
     }
 
-    // All other users/statuses
+    // Existing behavior for all other users/statuses
     return true;
 },
 
