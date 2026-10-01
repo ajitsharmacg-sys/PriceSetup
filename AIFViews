@@ -1,3 +1,138 @@
+@click="line_target_status = choice; show_line_status_update = true;"
+
+<modal-dialog v-model="show_line_status_update">
+    <template #header>
+        <h5 class="modal-title">Action</h5>
+    </template>
+
+    <template #body>
+        <div class="d-flex flex-column">
+
+            <h5>
+                [[ line_status_update_message() ]]
+            </h5>
+
+            <div class="p-2">
+                <label for="line_status_comment" class="form-label">
+                    Comment (optional)
+                </label>
+
+                <input
+                    type="text"
+                    autocomplete="off"
+                    maxlength="300"
+                    id="line_status_comment"
+                    class="form-control"
+                    v-model="comment"
+                    placeholder="Leave a comment">
+            </div>
+
+            <div class="p-2">
+                <label
+                    class="form-label"
+                    for="line_status_update_attachment">
+                    Attachments (optional)
+                </label>
+
+                <input
+                    type="file"
+                    class="form-control"
+                    id="line_status_update_attachment"
+                    accept="image/*, application/pdf"
+                    multiple>
+            </div>
+
+        </div>
+    </template>
+
+    <template #footer>
+        <button
+            type="button"
+            class="btn btn-primary"
+            @click="update_line_status()">
+
+            Confirm
+
+            <span
+                class="spinner-border spinner-border-sm"
+                role="status"
+                v-if="refreshing">
+            </span>
+        </button>
+    </template>
+</modal-dialog>
+
+
+line_status_update_message() {
+    switch (this.line_target_status) {
+        case "APPROVED":
+            return "Please confirm that you approve the selected account(s).";
+
+        case "REJECTED":
+            return "Please confirm that you reject the selected account(s).";
+
+        default:
+            return "Would you like to continue?";
+    }
+},
+
+
+
+async update_line_status() {
+    this.show_line_status_update = false;
+    this.refreshing = true;
+
+    let error_occured = false;
+
+    for (const line of this.selected_lines) {
+
+        await postData(api_endpoints.aif_line_status, {
+            aif_line: line.id,
+            status: this.line_target_status,
+            comment: this.comment
+        })
+        .then(response => {
+            if (response.ok) {
+                return response.json();
+            }
+
+            return Promise.reject(response);
+        })
+        .catch(error_response => {
+
+            error_occured = true;
+
+            error_response.json().then(data => {
+
+                const message = data?.detail
+                    ? data.detail
+                    : "An error occurred during the update of the status for line: " + line.id;
+
+                this.display_error(error_response, message);
+            });
+        });
+    }
+
+    if (!error_occured) {
+
+        await this.upload_file("line_status_update_attachment");
+
+        this.update_triggered = true;
+
+        this.selected_lines = [];
+
+        this.comment = null;
+
+        this.line_target_status = null;
+    }
+
+    this.refreshing = false;
+},
+
+
+
+
+
 @row-select="
     (item, index) => {
         if (canActOnLine(item)) {
