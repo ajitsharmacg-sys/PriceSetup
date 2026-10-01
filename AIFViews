@@ -1,3 +1,17 @@
+aif_cancel_numbers = serializers.SerializerMethodField()
+
+def get_aif_cancel_numbers(self, obj):
+    if not obj.aif_cancel_numbers:
+        return ""
+
+    return ", ".join(
+        value.strip()
+        for value in obj.aif_cancel_numbers.split(";")
+        if value.strip()
+    )
+
+
+
 console.log("========== LOAD AIF COMPLETED ==========");
 console.log("selected_aif:", this.selected_aif);
 console.log("aif_id:", this.aif_id);
