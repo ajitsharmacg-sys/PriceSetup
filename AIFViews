@@ -1,3 +1,63 @@
+<div class="table-responsive">
+
+    <form id="line_form" @submit.prevent="">
+
+        <table>
+            <thead>
+                <tr>
+                    ...
+                </tr>
+            </thead>
+
+            <tbody>
+                <tr v-for="(line,index) in lines" :key="line.id || index">
+                    <td>...</td>
+                    <td>...</td>
+                    <td>...</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <div class="mt-2">
+            <add-button
+                :size="20"
+                @click="add_line()">
+            </add-button>
+        </div>
+
+    </form>
+
+</div>
+
+
+const lineform = document.getElementById("line_form");
+
+lineform.requestSubmit();
+
+if (!lineform.reportValidity()) {
+    return false;
+}
+
+
+if (this.lines.length == 0) {
+    this.show_notification("No lines are present. Please enter at least one line.");
+    return false;
+}
+
+const lineform = document.getElementById("line_form");
+
+lineform.requestSubmit();
+
+if (!lineform.reportValidity()) {
+    return false;
+}
+
+return true;
+
+
+
+
+
 if not is_role_allowed_for_line_status(
     user_roles=user_roles,
     target_status=current_status.status,
