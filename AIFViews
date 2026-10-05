@@ -1,3 +1,69 @@
+export const DecimalCell = {
+    delimiters: ['[[', ']]'],
+    props: {
+        value: {
+            type: [String, Number],
+            default: ""
+        }
+    },
+    methods: {
+        numberWithCommas(x) {
+            if (x === null || x === undefined || x === "") {
+                return "";
+            }
+
+            return x.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+        }
+    },
+    template: `
+    <td :title="value">
+        <span class="app-cell-clamp">[[ numberWithCommas(value) ]]</span>
+    </td>
+    `
+}
+
+export const TableCell = {
+    delimiters: ['[[', ']]'],
+    components: {
+        DateCell,
+        DateTimeCell,
+        StringCell,
+        URLCell,
+        BooleanCell,
+        DecimalCell,
+        ObjectCell
+    },
+    props: ['django_type', 'value'],
+    computed: {
+        cell_type() {
+            return this.cell_type_mapping?.[this.django_type] ?? "StringCell";
+        }
+    },
+    data() {
+        return {
+            cell_type_mapping: {
+                "datetime": "DateTimeCell",
+                "date": "DateCell",
+                "string": "StringCell",
+                "url": "URLCell",
+                "choice": "StringCell",
+                "boolean": "BooleanCell",
+                "integer": "StringCell",
+                "nested object": "ObjectCell",
+                "decimal": "DecimalCell",
+                "field": "StringCell",
+            }
+        };
+    },
+    template: `
+    <component
+        :is="cell_type"
+        :value="value">
+    </component>
+    `,
+}
+
+
 <div class="table-responsive">
 
     <form id="line_form" @submit.prevent="">
