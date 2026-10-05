@@ -1,3 +1,10 @@
+filterset_fields = {
+    "id": ["exact"],
+    "aif": ["exact"],
+    "aif_line_status__status": ["exact"],
+}
+
+
 export const DecimalCell = {
     delimiters: ['[[', ']]'],
     props: {
