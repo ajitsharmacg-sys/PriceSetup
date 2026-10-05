@@ -1,3 +1,56 @@
+class AifLineByStatusFilter(filters.BaseFilterBackend):
+    """
+    Custom filter to filter AIF lines based on their latest status.
+    """
+
+    def filter_queryset(self, request, queryset, view):
+        aif_line_status = request.query_params.get("aif_line_status")
+
+        if aif_line_status:
+            if aif_line_status in AifLineStatusChoices:
+                latest_statuses = AifLineStatus.objects.raw(
+                    """
+                    SELECT
+                        s.id,
+                        s.meta_created_date,
+                        s.status,
+                        s.comment,
+                        s.aif_line_id,
+                        s.meta_created_by_id
+                    FROM aif_aiflinestatus s
+                    INNER JOIN (
+                        SELECT
+                            aif_line_id,
+                            MAX(id) AS last_status_id
+                        FROM aif_aiflinestatus
+                        GROUP BY aif_line_id
+                    ) latest
+                        ON latest.last_status_id = s.id
+                    WHERE s.status = %s
+                    """,
+                    [aif_line_status],
+                )
+
+                aif_line_ids = [
+                    status.aif_line_id
+                    for status in latest_statuses
+                ]
+
+                queryset = queryset.filter(
+                    id__in=aif_line_ids
+                )
+
+        return queryset
+
+filter_backends = [
+    DjangoFilterBackend,
+    filters.SearchFilter,
+    filters.OrderingFilter,
+    AifLineByStatusFilter,
+]
+
+
+
 filterset_fields = {
     "id": ["exact"],
     "aif": ["exact"],
