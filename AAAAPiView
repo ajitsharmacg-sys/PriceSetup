@@ -1,3 +1,70 @@
+DECLARE @CurrentAIFID INT = 10082;
+DECLARE @CandidateAIFID INT = 10081;
+
+SELECT
+    a.aif_id,
+    a.nso,
+    a.start_date,
+    a.end_date,
+    a.is_all_nso_enabled,
+    latest.status AS latest_status,
+
+    CASE
+        WHEN a.nso = current_aif.nso THEN 'MATCH'
+        ELSE 'MISMATCH'
+    END AS nso_check,
+
+    CASE
+        WHEN EXISTS (
+            SELECT 1
+            FROM aif_aiflines candidate_line
+            INNER JOIN aif_aiflines current_line
+                ON current_line.mercury_code =
+                   candidate_line.mercury_code
+            WHERE candidate_line.aif_id = a.aif_id
+              AND current_line.aif_id = @CurrentAIFID
+        ) THEN 'MATCH'
+        ELSE 'NO MATCH'
+    END AS mercury_code_check,
+
+    CASE
+        WHEN EXISTS (
+            SELECT 1
+            FROM aif_aifcustomerlines candidate_customer
+            INNER JOIN aif_aifcustomerlines current_customer
+                ON current_customer.oracle_cust_number =
+                   candidate_customer.oracle_cust_number
+            WHERE candidate_customer.aif_id = a.aif_id
+              AND current_customer.aif_id = @CurrentAIFID
+        ) THEN 'MATCH'
+        ELSE 'NO MATCH'
+    END AS customer_check,
+
+    CASE
+        WHEN latest.status IN ('DRAFT', 'PLANNED', 'INVALID')
+            THEN 'MATCH'
+        ELSE 'STATUS EXCLUDED'
+    END AS status_check
+
+FROM aif_aif a
+
+INNER JOIN aif_aif current_aif
+    ON current_aif.aif_id = @CurrentAIFID
+
+OUTER APPLY (
+    SELECT TOP 1 s.status
+    FROM aif_aifstatus s
+    WHERE s.aif_id = a.aif_id
+    ORDER BY s.id DESC
+) latest
+
+WHERE a.aif_id = @CandidateAIFID;
+
+
+
+
+
+
 DECLARE @CurrentAIFID INT = 10080;
 DECLARE @NSO NVARCHAR(50) = 'UK';
 
