@@ -1,3 +1,73 @@
+import logging
+
+logger = logging.getLogger(__name__)
+
+logger.warning(
+    "[AIF CONFLICT] Candidate query | "
+    "current_aif_id=%s | nso=%s | candidate_count=%s",
+    aif.aif_id,
+    aif.nso,
+    len(rows),
+)
+
+logger.warning(
+        "[AIF CONFLICT] Candidate | aif_id=%s | "
+        "mercury_code=%s | customer=%s | promotional_elp=%s | "
+        "modifier_line_no=%s",
+        row["aif_id"],
+        row["mercury_code"],
+        row["customer"],
+        row["promotional_elp"],
+        row["modifier_line_no"],
+    )
+
+logger.warning(
+        "[AIF CONFLICT] PowerBI lookup started | "
+        "modifier_count=%s | current_aif_start_date=%s",
+        len(modifier_line_nos),
+        aif_start_date,
+    )
+
+
+logger.warning(
+            "[AIF CONFLICT] No modifier line numbers to query."
+        )
+
+logger.warning(
+        "[AIF CONFLICT] PowerBI lookup completed | "
+        "matched_modifier_count=%s",
+        len(modifier_rows),
+    )
+
+
+logger.warning(
+            "[AIF CONFLICT] Modifier matched | "
+            "modifier_line_no=%s | start_date=%s | end_date=%s",
+            modifier[0],
+            modifier[1],
+            modifier[2],
+        )
+
+
+logger.warning(
+        "[AIF CONFLICT] Processing started | "
+        "current_aif_id=%s | start_date=%s | all_nso=%s",
+        aif.aif_id,
+        aif.start_date,
+        aif.is_all_nso_enabled,
+    )
+
+
+logger.warning(
+                "[AIF CONFLICT] Candidate excluded | "
+                "aif_id=%s | modifier_line_no=%s | "
+                "reason=no_matching_modifier_or_date_condition_failed",
+                row["aif_id"],
+                modifier_line_no,
+            )
+
+
+
 
 from django.db import connection, connections
 
