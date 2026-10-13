@@ -1,4 +1,294 @@
-import logging
+
+
+def build_modifier_line_no(row):
+    formatted_elp = f"{float(row['promotional_elp'] or 0):.2f}"
+
+    if row["customer"] is not None:
+        modifier_line_no = (
+            f"{row['mercury_code']}_"
+            f"{row['customer']}_"
+            f"{row['aif_id']}_"
+            f"{formatted_elp}"
+        )
+    else:
+        modifier_line_no = (
+            f"{row['mercury_code']}_"
+            f"{row['aif_id']}_"
+            f"{formatted_elp}"
+        )
+
+    logger.warning(
+        "[AIF CONFLICT] Modifier line generated | "
+        "aif_id=%s | mercury_code=%s | customer=%s | "
+        "promotional_elp=%s | modifier_line_no=%s",
+        row["aif_id"],
+        row["mercury_code"],
+        row["customer"],
+        row["promotional_elp"],
+        modifier_line_no,
+    )
+
+    return modifier_line_no
+
+
+def get_conflict_candidates(aif):
+    logger.warning(
+        "[AIF CONFLICT] Candidate search started | "
+        "current_aif_id=%s | nso=%s | start_date=%s | all_nso=%s",
+        aif.aif_id,
+        aif.nso,
+        aif.start_date,
+        aif.is_all_nso_enabled,
+    )
+
+    base_sql = """
+        SELECT
+            a.aif_id,
+            a.start_date,
+            a.end_date,
+            l.mercury_code,
+            l.promotional_elp,
+            {customer_column}
+        FROM aif_aif a
+        INNER JOIN aif_aiflines l
+            ON l.aif_id = a.aif_id
+        INNER JOIN aif_aiflines current_l
+            ON current_l.aif_id = %s
+            AND current_l.mercury_code = l.mercury_code
+        {customer_join}
+        WHERE
+            a.aif_id != %s
+            AND a.nso = %s
+            AND (
+                SELECT TOP 1 s.status
+                FROM aif_aifstatus s
+                WHERE s.aif_id = a.aif_id
+                ORDER BY s.id DESC
+            ) IN (%s, %s, %s)
+            {extra_condition}
+    """
+
+    if aif.is_all_nso_enabled:
+        customer_column = "NULL AS customer"
+        customer_join = ""
+        extra_condition = "AND a.is_all_nso_enabled = 1"
+
+        params = [
+            aif.aif_id,
+            aif.aif_id,
+            aif.nso,
+            AifStatusChoices.DRAFT,
+            AifStatusChoices.PLANNED,
+            AifStatusChoices.INVALID,
+        ]
+    else:
+        customer_column = "c.oracle_cust_number AS customer"
+        customer_join = """
+            INNER JOIN aif_aifcustomerlines c
+                ON c.aif_id = a.aif_id
+            INNER JOIN aif_aifcustomerlines current_c
+                ON current_c.aif_id = %s
+                AND current_c.oracle_cust_number =
+                    c.oracle_cust_number
+        """
+        extra_condition = ""
+
+        params = [
+            aif.aif_id,
+            aif.aif_id,
+            aif.aif_id,
+            aif.nso,
+            AifStatusChoices.DRAFT,
+            AifStatusChoices.PLANNED,
+            AifStatusChoices.INVALID,
+        ]
+
+    sql = base_sql.format(
+        customer_column=customer_column,
+        customer_join=customer_join,
+        extra_condition=extra_condition,
+    )
+
+    logger.warning(
+        "[AIF CONFLICT] Executing candidate SQL | "
+        "current_aif_id=%s | all_nso=%s",
+        aif.aif_id,
+        aif.is_all_nso_enabled,
+    )
+
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute(sql, params)
+            columns = [column[0] for column in cursor.description]
+            rows = [
+                dict(zip(columns, row))
+                for row in cursor.fetchall()
+            ]
+    except Exception:
+        logger.exception(
+            "[AIF CONFLICT] Candidate SQL failed | aif_id=%s",
+            aif.aif_id,
+        )
+        raise
+
+    logger.warning(
+        "[AIF CONFLICT] Candidate query completed | "
+        "current_aif_id=%s | candidate_count=%s",
+        aif.aif_id,
+        len(rows),
+    )
+
+    for row in rows:
+        row["modifier_line_no"] = build_modifier_line_no(row)
+
+    return rows
+
+
+def get_modifier_data(rows, aif_start_date):
+    modifier_line_nos = list({
+        row["modifier_line_no"]
+        for row in rows
+    })
+
+    logger.warning(
+        "[AIF CONFLICT] PowerBI lookup started | "
+        "modifier_count=%s | current_aif_start_date=%s",
+        len(modifier_line_nos),
+        aif_start_date,
+    )
+
+    if not modifier_line_nos:
+        logger.warning(
+            "[AIF CONFLICT] PowerBI lookup skipped: "
+            "no modifier line numbers."
+        )
+        return {}
+
+    placeholders = ", ".join(["%s"] * len(modifier_line_nos))
+
+    sql = f"""
+        SELECT
+            [MODIFIER_LINE_NO],
+            [LINE_START_DATE_ACTIVE],
+            [LINE_END_DATE_ACTIVE]
+        FROM [PowerBI].[dbo].[Modifier]
+        WHERE [MODIFIER_LINE_NO] IN ({placeholders})
+          AND [LINE_END_DATE_ACTIVE] >= %s
+    """
+
+    params = modifier_line_nos + [aif_start_date]
+
+    logger.warning(
+        "[AIF CONFLICT] PowerBI query parameters | "
+        "modifier_line_nos=%s | date=%s",
+        modifier_line_nos,
+        aif_start_date,
+    )
+
+    try:
+        with connections["powerbi"].cursor() as cursor:
+            cursor.execute(sql, params)
+            modifier_rows = cursor.fetchall()
+    except Exception:
+        logger.exception(
+            "[AIF CONFLICT] PowerBI query failed | date=%s",
+            aif_start_date,
+        )
+        raise
+
+    logger.warning(
+        "[AIF CONFLICT] PowerBI lookup completed | "
+        "matched_modifier_count=%s",
+        len(modifier_rows),
+    )
+
+    for modifier in modifier_rows:
+        logger.warning(
+            "[AIF CONFLICT] Modifier matched | "
+            "modifier_line_no=%s | start_date=%s | end_date=%s",
+            modifier[0],
+            modifier[1],
+            modifier[2],
+        )
+
+    return {
+        row[0]: {
+            "line_start_date_active": row[1],
+            "line_end_date_active": row[2],
+        }
+        for row in modifier_rows
+    }
+
+
+def get_conflicting_aif_ids(aif):
+    logger.warning(
+        "[AIF CONFLICT] Processing started | "
+        "current_aif_id=%s | start_date=%s | nso=%s",
+        aif.aif_id,
+        aif.start_date,
+        aif.nso,
+    )
+
+    candidates = get_conflict_candidates(aif)
+
+    if not candidates:
+        logger.warning(
+            "[AIF CONFLICT] No candidate AIF rows found | "
+            "current_aif_id=%s",
+            aif.aif_id,
+        )
+        return []
+
+    modifier_lookup = get_modifier_data(
+        candidates,
+        aif.start_date,
+    )
+
+    conflicting_rows = []
+
+    for row in candidates:
+        modifier_line_no = row["modifier_line_no"]
+        modifier = modifier_lookup.get(modifier_line_no)
+
+        if modifier is None:
+            logger.warning(
+                "[AIF CONFLICT] Candidate excluded | "
+                "candidate_aif_id=%s | modifier_line_no=%s | "
+                "reason=no_matching_modifier_or_date_condition_failed",
+                row["aif_id"],
+                modifier_line_no,
+            )
+            continue
+
+        row.update(modifier)
+        conflicting_rows.append(row)
+
+        logger.warning(
+            "[AIF CONFLICT] Conflict accepted | "
+            "candidate_aif_id=%s | modifier_line_no=%s | "
+            "modifier_end_date=%s",
+            row["aif_id"],
+            modifier_line_no,
+            modifier["line_end_date_active"],
+        )
+
+    logger.warning(
+        "[AIF CONFLICT] Processing completed | "
+        "current_aif_id=%s | candidate_count=%s | "
+        "matched_conflict_count=%s",
+        aif.aif_id,
+        len(candidates),
+        len(conflicting_rows),
+    )
+
+    return conflicting_rows
+
+
+
+
+
+=============================
+==import logging
 
 logger = logging.getLogger(__name__)
 
