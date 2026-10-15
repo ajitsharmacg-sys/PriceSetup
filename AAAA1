@@ -1,0 +1,127 @@
+data() {
+    return {
+        current_screen: current_screen,
+        nav_context: nav_context,
+
+        // Workflow configuration loaded from Django
+        workflow: {},
+
+        aif_id: "{{ aif_id|escapejs }}",
+        selected_aif: selected_aif,
+        selected_line: {},
+        selected_lines: [],
+        comment: null,
+
+        // Keep the remaining existing properties unchanged
+        // ...
+    };
+},
+
+
+
+created() {
+    // Load AIF workflow configuration from Django
+    fetch("/aifmgmt/workflow/")
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(
+                    `Failed to load AIF workflow: ${response.status}`
+                );
+            }
+            return response.json();
+        })
+        .then(data => {
+            this.workflow = data;
+        })
+        .catch(error => {
+            console.error("Error loading AIF workflow:", error);
+            this.show_notification(
+                "Unable to load AIF workflow configuration. Please refresh the page or contact Support."
+            );
+        });
+
+    // Preserve the existing AIF line options loading
+    loadOptions(api_endpoints.aif_lines)
+        .then(response => {
+            if (response.ok) {
+                return response.json();
+            }
+            return Promise.reject(response);
+        })
+        .then(data => {
+            if ("actions" in data) {
+                this.options["aif_line"] = data.actions.POST;
+            }
+        })
+        .catch(error_response => {
+            this.display_error(error_response);
+        });
+},
+
+get_status_choices(aif) {
+    if (!aif?.aif_status || !this.workflow) {
+        return [];
+    }
+
+    const roles =
+        this.workflow.AIF_STATUS_TO_ROLE?.[aif.aif_status] || [];
+
+    const allowedStatuses =
+        this.workflow.AIF_STATUS_GRAPH?.[aif.aif_status] || [];
+
+    const hasPermission = roles.some(role =>
+        this.user_role.includes(role)
+    );
+
+    return hasPermission ? allowedStatuses : [];
+},
+
+
+canActOnLine(line) {
+    const currentStatus = this.selected_aif?.aif_status;
+
+    // Keep the existing administrator access
+    if (this.user_role.includes(this.admin_role)) {
+        return true;
+    }
+
+    // Do not allow selection-dependent actions before workflow loads
+    if (!Object.keys(this.workflow || {}).length) {
+        return false;
+    }
+
+    const allowedRoles =
+        this.workflow.AIF_STATUS_TO_ROLE?.[currentStatus] || [];
+
+    const belongsToAllowedRole = allowedRoles.some(role =>
+        this.user_role.includes(role)
+    );
+
+    if (!belongsToAllowedRole && currentStatus === "PLANNED") {
+        this.show_notification(
+            "You are not authorized to perform this action."
+        );
+    }
+
+    if (currentStatus === "PLANNED" && belongsToAllowedRole) {
+        const userEmail = "{{ request.user.email|escapejs }}";
+
+        const canAct = aif_approvers.value.some(item =>
+            item.product_group === line.product_group &&
+            item.responsibility === "PSBD" &&
+            item.approver?.email === userEmail
+        );
+
+        if (!canAct) {
+            this.show_notification(
+                "You are not the assigned approver for this product group."
+            );
+            return false;
+        }
+
+        return true;
+    }
+
+    return false;
+},
+
