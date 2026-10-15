@@ -3,6 +3,38 @@ data() {
         current_screen: current_screen,
         nav_context: nav_context,
 
+        workflow: {
+            AIF_LINE_STATUS_GRAPH: {},
+            LINE_STATUS_TO_ROLE: {},
+            ROLE_TO_LINE_STATUS: {},
+            AIF_STATUS_GRAPH: {},
+            AIF_STATUS_TO_ROLE: {},
+            ROLE_TO_AIF_STATUS: {},
+            ROLES: {},
+            ADMIN_ROLE: "",
+            ROLE_MAP: {},
+        },
+
+        colors: {
+            "DRAFT": "#adb5bd",
+            "AWAITING_APPROVAL": "#ffc107",
+            "AWAITING_VALIDATION": "#0d6efd",
+            "APPROVED": "#ffc107",
+            "CLOSED": "#198754",
+            "REJECTED": "#dc3545",
+            "INVALID": "#dc3545",
+            "PLANNED": "#ffc107",
+            "COMMERCIALLY_APPROVED": "#ffc107"
+        },
+    };
+},
+
+
+data() {
+    return {
+        current_screen: current_screen,
+        nav_context: nav_context,
+
         // Workflow configuration loaded from Django
         workflow: {},
 
@@ -125,3 +157,74 @@ canActOnLine(line) {
     return false;
 },
 
+
+canActOnLine(line) {
+    const currentStatus = this.selected_aif?.aif_status;
+
+    // Line selection is permitted only during PLANNED.
+    if (currentStatus !== "PLANNED") {
+        return false;
+    }
+
+    // Administrators can select lines during PLANNED.
+    if (this.user_role.includes(this.admin_role)) {
+        return true;
+    }
+
+    const allowedRoles = this.AIF_STATUS_TO_ROLE[currentStatus] || [];
+
+    const hasRequiredRole = allowedRoles.some(role =>
+        this.user_role.includes(role)
+    );
+
+    if (!hasRequiredRole) {
+        this.show_notification(
+            "You are not authorized to perform this action."
+        );
+        return false;
+    }
+
+    const userEmail = "{{ request.user.email|escapejs }}"
+        .trim()
+        .toLowerCase();
+
+    const requiredResponsibility =
+        this.selected_aif?.promotion_category === "Tender"
+            ? "Tender"
+            : "PSBD";
+
+    const approvers = Array.isArray(aif_approvers.value)
+        ? aif_approvers.value
+        : [];
+
+    const isAssignedApprover = approvers.some(item =>
+        item.product_group === line.product_group &&
+        item.responsibility === requiredResponsibility &&
+        item.approver?.email?.trim().toLowerCase() === userEmail
+    );
+
+    if (!isAssignedApprover) {
+        this.show_notification(
+            "You are not the assigned approver for this product group."
+        );
+        return false;
+    }
+
+    return true;
+},
+
+async loadWorkflow() {
+    const response = await fetch("/aifmgmt/workflow/");
+
+    if (!response.ok) {
+        throw response;
+    }
+
+    const data = await response.json();
+
+    this.workflow = {
+        AIF_STATUS_GRAPH: data.AIF_STATUS_GRAPH || {},
+        AIF_STATUS_TO_ROLE: data.AIF_STATUS_TO_ROLE || {},
+        ADMIN_ROLE: data.ADMIN_ROLE || ""
+    };
+},
