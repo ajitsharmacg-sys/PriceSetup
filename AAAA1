@@ -1,3 +1,141 @@
+
+from django.db import connection, connections, transaction
+
+def update_aif_workflow(
+    *,
+    request: HttpRequest,
+    aif: Aif,
+    new_status: str,
+    comment: str | None = None,
+):
+    with transaction.atomic():
+        # Lock the parent AIF record.
+        locked_aif = Aif.objects.select_for_update().get(pk=aif.pk)
+
+        # Re-read the current status after acquiring the lock.
+        current_status = get_aif_status(locked_aif).status
+
+        if current_status == new_status:
+            return
+
+        if not is_valid_aif_transition(
+            current_status=current_status,
+            new_status=new_status,
+        ):
+            raise PermissionDenied(
+                f"Invalid AIF status transition from "
+                f"{current_status} to {new_status}."
+            )
+
+        AifStatus.objects.create(
+            aif=locked_aif,
+            status=new_status,
+            comment=comment,
+            meta_created_by=request.user,
+        )
+
+        Aif.objects.filter(pk=locked_aif.pk).update(
+            meta_edited_date=timezone.now(),
+            meta_edited_by=request.user,
+        )
+
+        if new_status == AifStatusChoices.CLOSED:
+            update_all_lines_status(
+                status=AifLineStatusChoices.CLOSED,
+                aif=locked_aif,
+                request=request,
+            )
+
+        elif new_status == AifStatusChoices.PLANNED:
+            set_initial_line_status(locked_aif, request)
+
+            transaction.on_commit(
+                lambda: notify_aif_approvers(
+                    request,
+                    aif=locked_aif,
+                    comment=comment,
+                )
+            )
+
+        elif new_status == AifStatusChoices.INVALID:
+            reject_all_lines(
+                AifLines.objects.filter(aif=locked_aif),
+                request,
+            )
+
+        elif new_status == AifStatusChoices.AWAITING_VALIDATION:
+            update_all_lines_status(
+                status=AifLineStatusChoices.AWAITING_VALIDATION,
+                aif=locked_aif,
+                request=request,
+            )
+
+        transaction.on_commit(
+            lambda: send_aif_status_notification(
+                request=request,
+                aif=locked_aif,
+                new_status=new_status,
+                comment=comment,
+            )
+        )
+
+
+def perform_create(self, serializer):
+    with transaction.atomic():
+        aif_line = serializer.validated_data["aif_line"]
+        new_status = serializer.validated_data["status"]
+
+        # Lock the parent AIF, following the Ecom Pricing pattern.
+        aif = Aif.objects.select_for_update().get(
+            pk=aif_line.aif_id
+        )
+
+        current_status = (
+            AifLineStatus.objects
+            .filter(aif_line=aif_line)
+            .order_by("-id")
+            .first()
+        )
+
+        if not current_status:
+            raise PermissionDenied("Current line status was not found.")
+
+        user_roles = get_user_roles(self.request.user)
+
+        if not is_valid_line_transition(
+            current_status=current_status.status,
+            new_status=new_status,
+        ):
+            raise PermissionDenied(
+                f"Invalid line status transition from "
+                f"{current_status.status} to {new_status}."
+            )
+
+        if not is_role_allowed_for_line_status(
+            user_roles=user_roles,
+            target_status=current_status.status,
+        ):
+            raise PermissionDenied(
+                "You are not allowed to perform this line status transition."
+            )
+
+        instance = serializer.save(
+            meta_created_by=self.request.user
+        )
+
+        new_aif_status = determine_aif_status(
+            aif_lines=AifLines.objects.filter(aif=aif),
+            current_status=get_aif_status(aif).status,
+        )
+
+        update_aif_workflow(
+            request=self.request,
+            aif=aif,
+            new_status=new_aif_status,
+            comment=instance.comment,
+        )
+
+=====================
 data() {
     return {
         current_screen: current_screen,
