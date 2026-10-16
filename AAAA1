@@ -2,6 +2,87 @@
 canActOnLine(line) {
     const currentStatus = this.selected_aif?.aif_status;
 
+    // Allow selection only when the AIF is PLANNED.
+    if (currentStatus !== "PLANNED") {
+        return false;
+    }
+
+    // Allow administrators to select lines.
+    if (
+        this.admin_role &&
+        this.user_role.includes(this.admin_role)
+    ) {
+        return true;
+    }
+
+    // Check workflow role permission.
+    const allowedRoles =
+        this.workflow?.AIF_STATUS_TO_ROLE?.[currentStatus] || [];
+
+    const belongsToAllowedRole = allowedRoles.some(role =>
+        this.user_role.includes(role)
+    );
+
+    if (!belongsToAllowedRole) {
+        this.show_notification(
+            "You are not authorized to perform this action."
+        );
+        return false;
+    }
+
+    // Map AIF promotion category to AifApprover responsibility.
+    const responsibilityByCategory = {
+        "Product Support": "PSBD",
+        "Tender": "Tender",
+    };
+
+    const responsibility =
+        responsibilityByCategory[
+            this.selected_aif?.promotion_category
+        ];
+
+    if (!responsibility) {
+        this.show_notification(
+            "Invalid promotion category."
+        );
+        return false;
+    }
+
+    const userEmail =
+        "{{ request.user.email|escapejs }}".trim().toLowerCase();
+
+    if (!userEmail) {
+        this.show_notification(
+            "Your email address is not configured."
+        );
+        return false;
+    }
+
+    // Verify the assigned approver for this product group.
+    const approvers = aif_approvers?.value || [];
+
+    const canAct = approvers.some(item =>
+        item.product_group === line.product_group &&
+        item.responsibility === responsibility &&
+        item.approver?.email?.trim().toLowerCase() === userEmail
+    );
+
+    if (!canAct) {
+        this.show_notification(
+            "You are not the assigned approver for this product group."
+        );
+        return false;
+    }
+
+    return true;
+},
+
+
+
+
+canActOnLine(line) {
+    const currentStatus = this.selected_aif?.aif_status;
+
     // Do not allow selection unless the AIF is PLANNED.
     if (currentStatus !== "PLANNED") {
         return false;
