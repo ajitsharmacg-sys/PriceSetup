@@ -1,3 +1,84 @@
+// 1. Main method: validate whether the user can select the line
+canActOnLine(line) {
+    const currentStatus = this.selected_aif?.aif_status;
+
+    if (currentStatus !== "PLANNED") {
+        return false;
+    }
+
+    // Admin users can act without checking individual approver assignment
+    if (
+        this.admin_role &&
+        this.user_role.includes(this.admin_role)
+    ) {
+        return true;
+    }
+
+    if (!this.hasRequiredRole()) {
+        this.show_notification(
+            "You are not authorized to perform this action."
+        );
+        return false;
+    }
+
+    const responsibility =
+        this.workflow?.PROMOTION_CATEGORY_TO_RESPONSIBILITY?.[
+            this.selected_aif?.promotion_category
+        ];
+
+    if (!responsibility) {
+        this.show_notification(
+            "Unable to determine the approver responsibility for this promotion category."
+        );
+        return false;
+    }
+
+    const userEmail =
+        "{{ request.user.email|escapejs }}".trim().toLowerCase();
+
+    if (!userEmail) {
+        this.show_notification("Your email address is not configured.");
+        return false;
+    }
+
+    return this.isAssignedApprover(line, responsibility, userEmail);
+},
+
+// 2. Validate role against the workflow configuration
+hasRequiredRole() {
+    const currentStatus = this.selected_aif?.aif_status;
+
+    const allowedRoles =
+        this.workflow?.AIF_STATUS_TO_ROLE?.[currentStatus] || [];
+
+    return allowedRoles.some(role =>
+        this.user_role.includes(role)
+    );
+},
+
+// 3. Validate the assigned approver for the product group
+isAssignedApprover(line, responsibility, userEmail) {
+    const approvers =
+        this.aif_approvers?.value || this.aif_approvers || [];
+
+    const isAssigned = approvers.some(item =>
+        item.product_group === line.product_group &&
+        item.responsibility === responsibility &&
+        item.approver?.email?.trim().toLowerCase() === userEmail
+    );
+
+    if (!isAssigned) {
+        this.show_notification(
+            "You are not the assigned approver for this product group."
+        );
+    }
+
+    return isAssigned;
+},
+
+
+
+
 
 class AifStatusView(viewsets.ModelViewSet):
     permission_classes = [IsApplicationUser]
