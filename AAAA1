@@ -1,4 +1,84 @@
 
+canActOnLine(line) {
+    const currentStatus = this.selected_aif?.aif_status;
+
+    // Do not allow selection unless the AIF is PLANNED.
+    if (currentStatus !== "PLANNED") {
+        return false;
+    }
+
+    // Administrator can select lines regardless of approver assignment.
+    if (
+        this.admin_role &&
+        this.user_role.includes(this.admin_role)
+    ) {
+        return true;
+    }
+
+    // Check whether the user's role is allowed for this AIF status.
+    const allowedRoles =
+        this.workflow?.AIF_STATUS_TO_ROLE?.[currentStatus] || [];
+
+    const belongsToAllowedRole = allowedRoles.some(role =>
+        this.user_role.includes(role)
+    );
+
+    if (!belongsToAllowedRole) {
+        this.show_notification(
+            "You are not authorized to perform this action."
+        );
+        return false;
+    }
+
+    // Derive the required responsibility from the existing mapping.
+    // Use the existing backend mapping if it is exposed to this Vue component.
+    const responsibility =
+        this.workflow?.PROMOTION_CATEGORY_TO_RESPONSIBILITY?.[
+            this.selected_aif?.promotion_category
+        ];
+
+    if (!responsibility) {
+        this.show_notification(
+            "Unable to determine the approver responsibility for this promotion category."
+        );
+        return false;
+    }
+
+    // Normalize email addresses to avoid case-sensitive mismatches.
+    const userEmail =
+        "{{ request.user.email|escapejs }}".trim().toLowerCase();
+
+    if (!userEmail) {
+        this.show_notification(
+            "Your email address is not configured."
+        );
+        return false;
+    }
+
+    // Verify product group, responsibility and assigned approver.
+    const approvers = aif_approvers?.value || [];
+
+    const canAct = approvers.some(item =>
+        item.product_group === line.product_group &&
+        item.responsibility === responsibility &&
+        item.approver?.email?.trim().toLowerCase() === userEmail
+    );
+
+    if (!canAct) {
+        this.show_notification(
+            "You are not the assigned approver for this product group."
+        );
+        return false;
+    }
+
+    return true;
+},
+
+=============================================================
+
+
+
+
 from django.db import connection, connections, transaction
 
 def update_aif_workflow(
