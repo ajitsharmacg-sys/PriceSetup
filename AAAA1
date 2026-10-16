@@ -1,3 +1,38 @@
+canActOnLine(line) {
+    if (this.selected_aif?.aif_status !== "PLANNED") return false;
+
+    // Only allow selection of lines awaiting approval
+    if (line?.line_status !== "AWAITING_APPROVAL") return false;
+
+    // Admin can act on eligible lines
+    if (this.admin_role && this.user_role.includes(this.admin_role)) {
+        return true;
+    }
+
+    if (!this.hasRequiredRole()) {
+        return false;
+    }
+
+    const responsibility = this.getApproverResponsibility();
+
+    if (!responsibility) {
+        this.show_notification(
+            "Unable to determine the approver responsibility for this promotion category."
+        );
+        return false;
+    }
+
+    const userEmail = "{{ request.user.email|escapejs }}".trim().toLowerCase();
+
+    if (!userEmail) {
+        this.show_notification("Your email address is not configured.");
+        return false;
+    }
+
+    return this.isAssignedApprover(line, responsibility, userEmail);
+},
+
+
 // Main entry point called when selecting a line
 canActOnLine(line) {
     if (!this.isAifReadyForLineAction()) {
