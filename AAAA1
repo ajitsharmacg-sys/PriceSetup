@@ -1,3 +1,4 @@
+
 class AifStatusView(viewsets.ModelViewSet):
     permission_classes = [IsApplicationUser]
     http_method_names = ["get", "post", "head", "options"]
@@ -17,32 +18,31 @@ class AifStatusView(viewsets.ModelViewSet):
         comment = serializer.validated_data.get("comment")
 
         # Get the current AIF status
-        current_status = get_aif_status(aif.aif_id)
+        current_status = get_aif_status(aif.aif_id).status
 
-        # Validate the status transition
+        # Validate the transition from current to new status
         if not is_valid_aif_transition(
-            current_status=current_status.status,
+            current_status=current_status,
             new_status=new_status,
         ):
             raise PermissionDenied(
                 f"Invalid AIF status transition from "
-                f"{current_status.status} to {new_status}."
+                f"{current_status} to {new_status}."
             )
 
-        # Validate the user's role against the current AIF status,
-        # following the same pattern as AifLineStatusView.
+        # Validate the user's role against the current status
         user_roles = get_user_roles(self.request.user)
 
         if not is_role_allowed_for_aif_status(
             user_roles=user_roles,
-            target_status=current_status.status,
+            target_status=current_status,
         ):
             raise PermissionDenied(
                 "You are not allowed to perform "
                 "this AIF status transition."
             )
 
-        # Perform the status update
+        # Update the workflow with transactional validation
         update_aif_workflow(
             request=self.request,
             aif=aif,
