@@ -1,3 +1,113 @@
+// Main entry point called when selecting a line
+canActOnLine(line) {
+    if (!this.isAifReadyForLineAction()) {
+        return false;
+    }
+
+    if (this.isAdminUser()) {
+        return true;
+    }
+
+    if (!this.hasRoleForCurrentAifStatus()) {
+        this.show_notification(
+            "You are not authorized to perform this action."
+        );
+        return false;
+    }
+
+    const responsibility = this.getApproverResponsibility();
+
+    if (!responsibility) {
+        this.show_notification(
+            "Unable to determine the approver responsibility for this promotion category."
+        );
+        return false;
+    }
+
+    const userEmail = this.getCurrentUserEmail();
+
+    if (!userEmail) {
+        this.show_notification(
+            "Your email address is not configured."
+        );
+        return false;
+    }
+
+    if (!this.isAssignedApprover(line, responsibility, userEmail)) {
+        this.show_notification(
+            "You are not the assigned approver for this product group."
+        );
+        return false;
+    }
+
+    return true;
+},
+
+// 1. Check whether line actions are available for the current AIF
+isAifReadyForLineAction() {
+    return this.selected_aif?.aif_status === "PLANNED";
+},
+
+// 2. Check whether the current user is an administrator
+isAdminUser() {
+    return Boolean(
+        this.admin_role &&
+        this.user_role.includes(this.admin_role)
+    );
+},
+
+// 3. Check whether the user has a role allowed for the current status
+hasRoleForCurrentAifStatus() {
+    const currentStatus = this.selected_aif?.aif_status;
+
+    const allowedRoles =
+        this.workflow?.AIF_STATUS_TO_ROLE?.[currentStatus] || [];
+
+    return allowedRoles.some(role =>
+        this.user_role.includes(role)
+    );
+},
+
+// 4. Get approver responsibility from workflow configuration
+getApproverResponsibility() {
+    const promotionCategory =
+        this.selected_aif?.promotion_category;
+
+    const responsibilityByCategory =
+        this.workflow?.PROMOTION_CATEGORY_TO_RESPONSIBILITY || {};
+
+    return responsibilityByCategory[promotionCategory] || null;
+},
+
+// 5. Get the current user's email address
+getCurrentUserEmail() {
+    return "{{ request.user.email|escapejs }}"
+        .trim()
+        .toLowerCase();
+},
+
+// 6. Verify that the user is the assigned approver for this line
+isAssignedApprover(line, responsibility, userEmail) {
+    const approvers = this.aif_approvers?.value
+        || this.aif_approvers
+        || [];
+
+    return approvers.some(item =>
+        item.product_group === line.product_group &&
+        item.responsibility === responsibility &&
+        item.approver?.email?.trim().toLowerCase() === userEmail
+    );
+},
+
+
+
+
+
+
+
+
+
+
 // 1. Main method: validate whether the user can select the line
 canActOnLine(line) {
     const currentStatus = this.selected_aif?.aif_status;
