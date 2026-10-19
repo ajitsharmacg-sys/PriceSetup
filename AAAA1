@@ -1,3 +1,43 @@
+isAssignedApprover(line, userEmail) {
+    return this.aif_approvers.some(approver =>
+        approver.responsibility === "PSBD" &&
+        approver.approver_email?.trim().toLowerCase() === userEmail
+    );
+},
+
+isLineEligibleForAction(line) {
+    return (
+        this.selected_aif?.aif_status === "PLANNED" &&
+        line?.line_status === "AWAITING_APPROVAL"
+    );
+},
+
+canActOnLine(line) {
+    // Check both header and line status
+    if (!this.isLineEligibleForAction(line)) return false;
+
+    // Admin can act on eligible lines
+    if (this.admin_role && this.user_role.includes(this.admin_role)) {
+        return true;
+    }
+
+    if (!this.hasRequiredRole()) {
+        return false;
+    }
+
+    const userEmail = "{{ request.user.email|escapejs }}"
+        .trim()
+        .toLowerCase();
+
+    if (!userEmail) {
+        this.show_notification("Your email address is not configured.");
+        return false;
+    }
+
+    return this.isAssignedApprover(line, userEmail);
+},
+
+
 canActOnLine(line) {
     if (this.selected_aif?.aif_status !== "PLANNED") return false;
 
