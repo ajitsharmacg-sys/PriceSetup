@@ -1,3 +1,18 @@
+SELECT
+    [MODIFIER_LINE_NO],
+    [HEADER_START_DATE_ACTIVE],
+    [HEADER_END_DATE_ACTIVE],
+    [LINE_START_DATE_ACTIVE],
+    [LINE_END_DATE_ACTIVE],
+    [PRODUCT_ATTRIBUTE_VALUE],
+    [VALUE_FROM]
+FROM [PowerBI].[dbo].[Modifier]
+WHERE [MODIFIER_LINE_NO] LIKE '%_10080_%'
+  AND [MODIFIER_LINE_NO] LIKE '%4112C005%'
+ORDER BY [LINE_START_DATE_ACTIVE];
+
+
+
 isAssignedApprover(line, userEmail) {
     return this.aif_approvers.some(approver =>
         approver.responsibility === "PSBD" &&
