@@ -1,3 +1,34 @@
+watch: {
+    nav_context: {
+        async handler(newVal, oldVal) {
+            if (this.current_screen === "aif_view") {
+                this.selected_lines = [];
+                this.aif_id = this.selected_aif?.aif_id || "";
+
+                if (this.aif_id) {
+                    await this.load_aif();
+
+                    // Wait for Vue to update the rendered UI.
+                    await this.$nextTick();
+
+                    console.log(
+                        "Promo Value:",
+                        this.promoValue
+                    );
+                    console.log(
+                        "Promo Value EUR:",
+                        this.promoValueEuro
+                    );
+                }
+            }
+        },
+        deep: true,
+    },
+},
+
+
+
+
 
 if (newVal.context === "template") {
     this.lines.forEach(line => {
