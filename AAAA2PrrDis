@@ -1,3 +1,17 @@
+@on-item-update="
+    (item) => {
+        selected_aif = {
+            ...selected_aif,
+            ...item,
+            aif_lines: selected_aif?.aif_lines || [],
+            aif_customer_lines: selected_aif?.aif_customer_lines || []
+        };
+    }
+"
+
+
+
+
 is_loading_aif: false,
 async load_aif() {
     console.log("Load AIF");
