@@ -1,3 +1,52 @@
+
+if (newVal.context === "template") {
+    this.lines.forEach(line => {
+        // Make every copied line a new line.
+        line.id = "temp";
+
+        // Clear the four fields in the cloned account.
+        line.account_name = "";
+        line.website = "";
+        line.nda_confirmed = "";
+        line.individuals_being_disclosed_to = "";
+
+        // Preserve other values and normalize related IDs.
+        line.product_search = "";
+        line.products = (line.products || []).map(
+            product =>
+                typeof product === "object"
+                    ? product.id
+                    : product
+        );
+
+        line.sda_partner_level = (
+            line.sda_partner_level || []
+        ).map(
+            sda =>
+                typeof sda === "object"
+                    ? sda.id
+                    : sda
+        );
+
+        line.sda_partner_level_search = "";
+
+        // Clear original line workflow information.
+        delete line.predisclosure_line_status;
+        delete line.previous_status;
+    });
+}
+
+
+
+
+
+
+
+
+
+
+
+
 Predisclosure_feedabck_fix
 
 async select_predisclosure_and_navigate(
