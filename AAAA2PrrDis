@@ -1,3 +1,25 @@
+watch: {
+    current_screen: {
+        async handler(newVal, oldVal) {
+            if (newVal === "aif_view") {
+                this.selected_lines = [];
+                this.aif_id = this.selected_aif?.aif_id || "";
+
+                if (this.aif_id) {
+                    await this.load_aif();
+                    await this.$nextTick();
+
+                    console.log("Promo Value:", this.promoValue);
+                    console.log("Promo Value EUR:", this.promoValueEuro);
+                }
+            }
+        },
+    },
+},
+
+
+
+
 @on-item-update="
     (item) => {
         selected_aif = {
