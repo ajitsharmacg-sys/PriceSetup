@@ -1,3 +1,8 @@
+const values = await this.getPromoValues(this.aif_id);
+
+this.promo_value = values.promo_value;
+this.promo_value_eur = values.promo_value_eur;
+
 async getPromoValues(aifId) {
     let values = {
         promo_value: "0.00",
