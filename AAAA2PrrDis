@@ -1,1 +1,38 @@
 Predisclosure_feedabck_fix
+
+async select_predisclosure_and_navigate(
+    item,
+    next_view_id,
+    context = null
+) {
+    if (context === "template") {
+        // Clone the complete PreDisclosure header.
+        this.selected_predisclosure = {
+            ...item,
+
+            // Clone the line array and clear fields only
+            // in the copied PreDisclosure.
+            predisclosure_line: (
+                item.predisclosure_line || []
+            ).map(line => ({
+                ...line,
+
+                // Clear the required fields in each cloned line.
+                account_name: "",
+                website: "",
+                nda_confirmed: "",
+                individuals_being_disclosed_to: "",
+            })),
+
+            // Do not carry over the original workflow status.
+            predisclosure_status: "DRAFT",
+            predisclosure_status_display: "DRAFT",
+            predisclosure_id: null,
+            predisclosure_status_history: [],
+        };
+    } else {
+        this.selected_predisclosure = item;
+    }
+
+    this.navigate(next_view_id, context);
+},
