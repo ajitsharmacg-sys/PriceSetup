@@ -1,3 +1,13 @@
+@on-item-update="
+    (item) => {
+        selected_aif = {
+            ...item,
+            aif_lines: selected_aif?.aif_lines || [],
+            aif_customer_lines: selected_aif?.aif_customer_lines || []
+        };
+    }
+"
+
 watch: {
     nav_context: {
         async handler(newVal, oldVal) {
