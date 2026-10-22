@@ -1,3 +1,27 @@
+copy_line(line, index) {
+    const clone = {
+        ...line,
+        account_name: "",
+        website: "",
+        nda_confirmed: "",
+        individuals_being_disclosed_to: "",
+        products: [...(line.products || [])],
+        product_search: "",
+        sda_partner_level: [...(line.sda_partner_level || [])],
+        sda_partner_level_search: "",
+    };
+
+    if (this.is_edit_mode) {
+        clone.id = "temp";
+        this.changes.new_lines_count++;
+    }
+
+    this.lines.push(clone);
+},
+
+
+
+
 const text = event.clipboardData.getData("text/plain");
 
 if (!text || !text.trim()) {
