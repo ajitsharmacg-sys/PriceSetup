@@ -1,3 +1,28 @@
+const text = event.clipboardData.getData("text/plain");
+
+if (!text || !text.trim()) {
+    return;
+}
+
+const copied_lines = text
+    .split(/\r?\n/)
+    .filter(line => line.trim() !== "");
+
+// Single-cell paste: do not apply Excel template validation.
+// Let the currently focused input handle the paste normally.
+const is_single_cell =
+    copied_lines.length === 1 &&
+    !copied_lines[0].includes("\t");
+
+if (is_single_cell) {
+    return;
+}
+
+// Multi-cell paste continues through the existing Excel template validation.
+
+
+
+
 class PreDisclosureForm(EnhancedModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
