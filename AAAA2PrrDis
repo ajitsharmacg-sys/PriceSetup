@@ -1,3 +1,244 @@
+class PreDisclosureForm(EnhancedModelForm):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        clusters = (
+            Organization.objects.exclude(
+                organization_name__in=["CENV", "CEL"]
+            )
+            .exclude(cluster__isnull=True)
+            .exclude(cluster="")
+            .values_list("cluster", flat=True)
+            .distinct()
+            .order_by("cluster")
+        )
+
+        cluster_choices = [("", "---------")] + [
+            (cluster, cluster) for cluster in clusters
+        ]
+
+        self.fields["region"].choices = cluster_choices
+        self.fields["region"].widget = Select(
+            attrs={
+                "class": "form-select form-select-sm",
+                "required": self.fields["region"].required,
+            },
+            choices=cluster_choices,
+        )
+
+        self.fields["predisclosure_type"].widget = Select(
+            attrs={"class": "form-select form-select-sm"},
+            choices=self.fields["predisclosure_type"].choices,
+        )
+
+        self.fields["product_category"].widget = Select(
+            attrs={"class": "form-select form-select-sm"},
+            choices=self.fields["product_category"].choices,
+        )
+
+    class Meta:
+        model = PreDisclosure
+        fields = [
+            "region",
+            "predisclosure_type",
+            "product_category",
+        ]
+
+
+from common.models import Organization
+
+
+class PreDisclosureLine(MetaAbstract):
+    predisclosure = models.ForeignKey(
+        PreDisclosure,
+        related_name="predisclosure_line",
+        on_delete=models.CASCADE,
+    )
+
+    organization = models.ForeignKey(
+        Organization,
+        on_delete=models.PROTECT,
+        related_name="predisclosure_lines",
+        verbose_name="Country",
+    )
+
+    # Keep your existing fields below.
+
+class PreDisclosureLineForm(EnhancedModelForm):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        organizations = (
+            Organization.objects.exclude(
+                organization_name__in=["CENV", "CEL"]
+            )
+            .order_by("organization_name")
+        )
+
+        self.fields["organization"].queryset = organizations
+        self.fields["organization"].empty_label = "Select country"
+        self.fields["organization"].widget.attrs.update({
+            "class": "form-select form-select-sm",
+        })
+
+        # Keep your existing account_name, website,
+        # textarea, date, and widget configuration here.
+
+    class Meta:
+        model = PreDisclosureLine
+        fields = [
+            "organization",
+            "account_name",
+            "website",
+            "nda_confirmed",
+            "disclosure_format",
+            "reason_for_disclosure",
+            "meeting_date",
+            "meeting_location",
+            "canon_responsible_person",
+            "individuals_being_disclosed_to",
+            "information_to_be_disclosed",
+            "products",
+            "sda_partner_level",
+            "account_in_sda_partner_list",
+            "retailer_ranking",
+            "disclosed_last_2_years",
+            "b2b_business_type",
+            "estimated_business",
+            "annual_sales",
+        ]
+
+
+from rest_framework.decorators import action
+from rest_framework.response import Response
+from rest_framework import viewsets
+
+from common.models import Organization
+
+
+class PreDisclosureViewSet(viewsets.ModelViewSet):
+    # Keep your existing serializer, permissions,
+    # queryset, and other configuration.
+
+    @action(
+        detail=False,
+        methods=["get"],
+        url_path="organizations",
+    )
+    def organizations(self, request):
+        cluster = request.query_params.get("cluster")
+
+        if not cluster:
+            return Response({"results": []})
+
+        organizations = Organization.objects.filter(
+            cluster=cluster
+        ).exclude(
+            organization_name__in=["CENV", "CEL"]
+        ).order_by("organization_name")
+
+        return Response({
+            "results": [
+                {
+                    "organization_name": org.organization_name,
+                    "id": org.pk,
+                }
+                for org in organizations
+            ]
+        })
+
+
+GET /aifmgmt/api/v1/predisclosure/organizations/?cluster=EMEA
+
+
+data() {
+    return {
+        selectedRegion: "",
+        availableOrganizations: [],
+    };
+},
+
+methods: {
+    async loadOrganizations(cluster) {
+        this.availableOrganizations = [];
+
+        if (!cluster) {
+            return;
+        }
+
+        try {
+            const response = await fetch(
+                `${this.endpoints.predisclosure}organizations/?cluster=${encodeURIComponent(cluster)}`
+            );
+
+            if (!response.ok) {
+                throw response;
+            }
+
+            const data = await response.json();
+            this.availableOrganizations = data.results || [];
+        } catch (error) {
+            this.display_error(error);
+        }
+    },
+
+    async onRegionChange(cluster) {
+        this.selectedRegion = cluster;
+        await this.loadOrganizations(cluster);
+
+        // Clear existing account country selections if they
+        // don't belong to the newly selected region.
+        // Adapt this loop to your existing account data structure.
+        this.accounts.forEach(account => {
+            const valid = this.availableOrganizations.some(
+                org => org.id === account.organization
+            );
+
+            if (!valid) {
+                account.organization = "";
+            }
+        });
+    },
+},
+
+
+<select
+    class="form-select form-select-sm"
+    v-model="account.organization"
+>
+    <option value="">Select country</option>
+    <option
+        v-for="org in availableOrganizations"
+        :key="org.id"
+        :value="org.id"
+    >
+        {{ org.organization_name }}
+    </option>
+</select>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+============================================================
 from django.db.models import Sum
 from rest_framework.decorators import action
 from rest_framework.response import Response
