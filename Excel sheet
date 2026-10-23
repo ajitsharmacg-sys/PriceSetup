@@ -4,6 +4,52 @@ SELECT
 FROM [SNT].[dbo].[Region_Mapping]
 WHERE [CME_Region] IS NULL
   AND [Region] IN (
+      'Albania',
+      'Azerbaijan',
+      'Bosnia-Herzegovina',
+      'Bulgaria',
+      'Croatia',
+      'Cyprus',
+      'Georgia',
+      'Greece',
+      'Israel',
+      'Kosovo',
+      'Macedonia',
+      'Malta',
+      'Moldova',
+      'Montenegro',
+      'Romania',
+      'Serbia',
+      'Slovenia',
+      'Ukraine',
+      'Turkey',
+      'Armenia',
+      'Belarus',
+      'Kaliningrad',
+      'Kazakhstan',
+      'Kyrgyzstan',
+      'Tajikistan',
+      'Turkmenistan',
+      'Uzbekistan'
+  )
+ORDER BY [Region];
+
+
+
+
+
+
+
+
+
+
+
+SELECT
+    [Region],
+    [CME_Region]
+FROM [SNT].[dbo].[Region_Mapping]
+WHERE [CME_Region] IS NULL
+  AND [Region] IN (
       'Algeria',
       'The Democratic Republic of The Congo',
       'Gabon',
