@@ -1,3 +1,113 @@
+SELECT
+    [Region],
+    [CME_Region]
+FROM [SNT].[dbo].[Region_Mapping]
+WHERE [CME_Region] IS NULL
+  AND [Region] IN (
+      'Algeria',
+      'The Democratic Republic of The Congo',
+      'Gabon',
+      'Ghana',
+      'Kenya',
+      'Liberia',
+      'Libyan Arab Jamahiriya',
+      'Morocco',
+      'Nigeria',
+      'Gambia',
+      'Tunisia',
+      'Bahrain',
+      'Egypt',
+      'Iraq',
+      'Jordan',
+      'Kuwait',
+      'Lebanon',
+      'Oman',
+      'Qatar',
+      'Saudi Arabia',
+      'United Arab Emirates',
+      'Albania',
+      'Azerbaijan',
+      'Bosnia and Herzegovina',
+      'Bulgaria',
+      'Croatia',
+      'Cyprus',
+      'Georgia',
+      'Greece',
+      'Israel',
+      'The Former Yugoslav Republic of Macedonia',
+      'Malta',
+      'Republic of Moldova',
+      'Montenegro',
+      'Romania',
+      'Serbia',
+      'Slovenia',
+      'Ukraine',
+      'Turkey',
+      'Armenia',
+      'Belarus',
+      'Kazakhstan',
+      'Kyrgyzstan',
+      'Tajikistan',
+      'Turkmenistan',
+      'Uzbekistan',
+      'Angola',
+      'Benin',
+      'Burkina Faso',
+      'Burundi',
+      'Cameroon',
+      'Cape Verde',
+      'Central African Republic',
+      'Chad',
+      'Comoros',
+      'Djibouti',
+      'Equatorial Guinea',
+      'Eritrea',
+      'Ethiopia',
+      'Guinea',
+      'Guinea-Bissau',
+      'Madagascar',
+      'Mali',
+      'Mauritania',
+      'Mayotte',
+      'Niger',
+      'Reunion',
+      'Rwanda',
+      'Sao Tome and Principe',
+      'Senegal',
+      'Seychelles',
+      'Sierra Leone',
+      'Somalia',
+      'South Sudan',
+      'Sudan',
+      'United Republic of Tanzania',
+      'Togo',
+      'Uganda',
+      'Islamic Republic of Iran',
+      'Syrian Arab Republic',
+      'Yemen',
+      'Botswana',
+      'Lesotho',
+      'Malawi',
+      'Mauritius',
+      'Mozambique',
+      'Namibia',
+      'South Africa',
+      'Swaziland',
+      'Zambia',
+      'Zimbabwe'
+  )
+ORDER BY [Region];
+
+
+
+
+
+
+
+
+
+
+
 No.	Client-provided country	Similar name in production database	Match status
 1	Albania	Albania	Exact
 2	Azerbaijan	Azerbaijan	Exact
