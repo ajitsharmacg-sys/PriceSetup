@@ -1,0 +1,25 @@
+No.	Client-provided country	Similar name in production database	Match status
+1	Albania	Albania	Exact
+2	Azerbaijan	Azerbaijan	Exact
+3	Bosnia-Herzegovina	Bosnia and Herzegovina	Similar
+4	Bulgaria	Bulgaria	Exact
+5	Croatia	Croatia	Exact
+6	Cyprus	Cyprus	Exact
+7	Georgia	Georgia	Exact
+8	Greece	Greece	Exact
+9	Israel	Israel	Exact
+10	Kosovo	No matching name in supplied list	Not found
+11	Macedonia	The Former Yugoslav Republic of Macedonia	Similar
+12	Malta	Malta	Exact
+13	Moldova	Republic of Moldova	Similar
+14	Montenegro	Montenegro	Exact
+15	Romania	Romania	Exact
+16	Serbia	Serbia	Exact
+17	Slovenia	Slovenia	Exact
+18	Ukraine	Ukraine	Exact
+19	Turkey	Turkey	Exact
+20	Armenia	Armenia	Exact
+21	Belarus	Belarus	Exact
+22	Kaliningrad	No matching name in supplied list	Not found
+23	Kazakhstan	Kazakhstan	Exact
+24	Kyrgyzstan	Kyrgyzstan	Exact
