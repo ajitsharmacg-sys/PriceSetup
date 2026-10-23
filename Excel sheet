@@ -8,7 +8,7 @@ No.	Client-provided country	Similar name in production database	Match status
 7	Georgia	Georgia	Exact
 8	Greece	Greece	Exact
 9	Israel	Israel	Exact
-10	Kosovo	No matching name in supplied list	Not found
+10	Kosovo	Not found in supplied list	Not found
 11	Macedonia	The Former Yugoslav Republic of Macedonia	Similar
 12	Malta	Malta	Exact
 13	Moldova	Republic of Moldova	Similar
@@ -20,6 +20,87 @@ No.	Client-provided country	Similar name in production database	Match status
 19	Turkey	Turkey	Exact
 20	Armenia	Armenia	Exact
 21	Belarus	Belarus	Exact
-22	Kaliningrad	No matching name in supplied list	Not found
+22	Kaliningrad	Not found in supplied list	Not found
 23	Kazakhstan	Kazakhstan	Exact
 24	Kyrgyzstan	Kyrgyzstan	Exact
+25	Tajikistan	Tajikistan	Exact
+26	Turkmenistan	Turkmenistan	Exact
+27	Uzbekistan	Uzbekistan	Exact
+28	Algeria	Not found in supplied list	Not found
+29	Angola	Angola	Exact
+30	Benin	Benin	Exact
+31	Burkina Faso	Burkina Faso	Exact
+32	Burundi	Burundi	Exact
+33	Cameroon	Cameroon	Exact
+34	Cape Verde	Cape Verde	Exact
+35	Central African Republic	Central African Republic	Exact
+36	Chad	Chad	Exact
+37	Comoros	Comoros	Exact
+38	Congo Brazzaville	Not found in supplied list	Not found
+39	Côte d'Ivoire	Not found in supplied list	Not found
+40	Democratic Republic of Congo	The Democratic Republic of The Congo	Similar
+41	Djibouti	Djibouti	Exact
+42	Dubai	Not found in supplied list	Not found
+43	Equatorial Guinea	Equatorial Guinea	Exact
+44	Eritrea	Eritrea	Exact
+45	Ethiopia	Ethiopia	Exact
+46	Gabon	Not found in supplied list	Not found
+47	Ghana	Not found in supplied list	Not found
+48	Guinea	Guinea	Exact
+49	Guinea-Bissau	Guinea-Bissau	Exact
+50	Kenya	Not found in supplied list	Not found
+51	Liberia	Not found in supplied list	Not found
+52	Libya	Not found in supplied list	Not found
+53	Madagascar	Madagascar	Exact
+54	Mali	Mali	Exact
+55	Mauritania	Mauritania	Exact
+56	Mayotte	Mayotte	Exact
+57	Morocco	Not found in supplied list	Not found
+58	Niger	Niger	Exact
+59	Nigeria	Not found in supplied list	Not found
+60	Reunion	Reunion	Exact
+61	Rwanda	Rwanda	Exact
+62	Saint Helena	Not found in supplied list	Not found
+63	Sao Tomé e Príncipe	Sao Tome and Principe	Similar
+64	Senegal	Senegal	Exact
+65	Seychelles	Seychelles	Exact
+66	Sierra Leone	Sierra Leone	Exact
+67	Somalia	Somalia	Exact
+68	South Sudan	South Sudan	Exact
+69	Sudan	Sudan	Exact
+70	Tanzania	United Republic of Tanzania	Similar
+71	The Gambia	Not found in supplied list	Not found
+72	Togo	Togo	Exact
+73	Tunisia	Not found in supplied list	Not found
+74	Uganda	Uganda	Exact
+75	Western Sahara	Not found in supplied list	Not found
+76	Bahrain	Not found in supplied list	Not found
+77	Egypt	Not found in supplied list	Not found
+78	Iran	Islamic Republic of Iran	Similar
+79	Iraq	Not found in supplied list	Not found
+80	Jordan	Not found in supplied list	Not found
+81	Kuwait	Not found in supplied list	Not found
+82	Lebanon	Not found in supplied list	Not found
+83	Oman	Not found in supplied list	Not found
+84	Qatar	Not found in supplied list	Not found
+85	Saudi Arabia	Not found in supplied list	Not found
+86	Syria	Syrian Arab Republic	Similar
+87	United Arab Emirates	Not found in supplied list	Not found
+88	Yemen	Yemen	Exact
+89	Botswana	Botswana	Exact
+90	Lesotho	Lesotho	Exact
+91	Malawi	Malawi	Exact
+92	Mauritius	Mauritius	Exact
+93	Mozambique	Mozambique	Exact
+94	Namibia	Namibia	Exact
+95	South Africa	South Africa	Exact
+96	Swaziland	Swaziland	Exact
+97	Zambia	Zambia	Exact
+98	Zimbabwe	Zimbabwe	Exact
+
+Summary
+Match status	Count
+Exact matches	60
+Similar names	8
+Not found in supplied production list	30
+Total client-provided entries	98
