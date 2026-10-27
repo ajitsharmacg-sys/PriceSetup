@@ -1,3 +1,11 @@
+if (
+    aif &&
+    aif.is_all_nso_enabled === false &&
+    customerLinesEmpty
+) {
+    await this.load_aif_customer_lines();
+}
+
 async ensureAifLinesLoaded() {
     const aif = this.selected_aif;
 
