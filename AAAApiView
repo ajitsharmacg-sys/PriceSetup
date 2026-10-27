@@ -1,0 +1,147 @@
+def are_all_lines_rejected(predisclosure):
+    lines = list(
+        PreDisclosureLine.objects.filter(predisclosure=predisclosure)
+    )
+
+    if not lines:
+        return False
+
+    for line in lines:
+        latest = get_latest_line_status(line)
+
+        if (
+            latest is None
+            or latest.status != PreDisclosureLineStatusChoices.REJECTED
+        ):
+            return False
+
+    return True
+
+
+
+
+def update_all_lines_status(status, predisclosure, request):
+    for line in PreDisclosureLine.objects.filter(
+        predisclosure=predisclosure
+    ):
+        latest = get_latest_line_status(line)
+
+        if latest is None:
+            continue
+
+        # Only approved accounts move to the next approver.
+        if latest.status != PreDisclosureLineStatusChoices.APPROVED:
+            continue
+
+        PreDisclosureLineStatus.objects.create(
+            line=line,
+            status=status,
+            meta_created_by=request.user,
+        )
+
+
+def finalize_workflow(predisclosure, request, notification=""):
+    already_finalized = PreDisclosureStatus.objects.filter(
+        predisclosure=predisclosure,
+        status=PreDisclosureStatusChoices.COMPLETED,
+    ).exists()
+
+    if already_finalized:
+        return
+
+    PreDisclosureStatus.objects.create(
+        predisclosure=predisclosure,
+        status=PreDisclosureStatusChoices.COMPLETED,
+        meta_created_by=request.user,
+    )
+
+    link = predisclosure_url(
+        request,
+        predisclosure.predisclosure_id,
+    )
+
+    latest_comment = (
+        PreDisclosureLineStatus.objects.filter(
+            line__predisclosure=predisclosure,
+            comment__isnull=False,
+        )
+        .exclude(comment="")
+        .order_by("-meta_created_date")
+        .values_list("comment", flat=True)
+        .first()
+    )
+
+    send_email(
+        to=predisclosure.meta_created_by.email,
+        subject=get_predisclosure_email_subject(
+            predisclosure,
+            PreDisclosureStatusChoices.COMPLETED,
+        ),
+        body=get_predisclosure_email_body(
+            predisclosure,
+            PreDisclosureStatusChoices.COMPLETED,
+            link,
+            comment=latest_comment,
+            notification=notification,
+        ),
+        cc=get_predisclosure_cc(
+            predisclosure,
+            PreDisclosureStatusChoices.COMPLETED,
+        ),
+    )
+
+
+def process_line_approval(request, line_status, notification=""):
+    with transaction.atomic():
+        predisclosure = line_status.line.predisclosure
+
+        # Wait until all accounts have completed the current stage.
+        if not is_stage_completed(predisclosure):
+            return
+
+        # If every account is rejected, complete the header immediately.
+        if are_all_lines_rejected(predisclosure):
+            finalize_workflow(
+                predisclosure,
+                request,
+                notification=(
+                    "All accounts were rejected at this approval stage. "
+                    "The request has been completed and requires NSO verification."
+                ),
+            )
+            return
+
+        previous_status = get_previous_status(line_status.line)
+
+        if previous_status is None:
+            return
+
+        next_status = get_next_status(
+            predisclosure.predisclosure_type,
+            predisclosure.product_category,
+            previous_status.status,
+        )
+
+        # No further approver means the final approval stage is complete.
+        if not next_status:
+            finalize_workflow(
+                predisclosure,
+                request,
+                notification=notification,
+            )
+            return
+
+        # Only approved accounts move to the next approval stage.
+        update_all_lines_status(
+            next_status,
+            predisclosure,
+            request,
+        )
+
+        notify_predisclosure_approvers(
+            request,
+            predisclosure,
+            next_status,
+            notification,
+        )
+
