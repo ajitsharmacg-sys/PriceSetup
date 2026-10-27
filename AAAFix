@@ -3,10 +3,12 @@ class CountryClusterView(viewsets.ReadOnlyModelViewSet):
     serializer_class = CountryClusterSerializer
 
     def get_queryset(self):
-        return RegionMapping.objects.order_by(
-            "cluster", "country"
-        ).distinct()
-
+        return (
+            RegionMapping.objects
+            .filter(cluster__isnull=False)
+            .order_by("cluster", "country")
+            .distinct()
+        )
 
 SELECT
     COLUMN_NAME,
