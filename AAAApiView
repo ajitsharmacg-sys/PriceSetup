@@ -1,3 +1,95 @@
+if status == PreDisclosureStatusChoices.COMPLETED:
+
+    if all_rejected:
+        completion_message = """
+        Your PreDisclosure request has been completed because all
+        accounts were rejected at the current approval stage.
+        The approval workflow has stopped and requires your verification.
+        """
+    else:
+        completion_message = """
+        Your PreDisclosure request has completed the approval workflow.
+        Please review the final account-level decisions.
+        """
+
+    content = f"""
+    Dear {escape(predisclosure.meta_created_by.first_name)},<br><br>
+
+    {completion_message}<br><br>
+
+    <b>Request ID:</b>
+    {escape(str(predisclosure.predisclosure_id))}<br>
+    <b>Disclosure Type:</b>
+    {escape(predisclosure.get_predisclosure_type_display())}<br>
+    <b>Product Category:</b>
+    {escape(str(predisclosure.product_category))}<br>
+    <b>Region:</b>
+    {escape(str(predisclosure.region))}<br><br>
+
+    {notification_content}
+
+    Please review the request using the following link:<br><br>
+    <a href="{escape(link, quote=True)}">{escape(link)}</a><br><br>
+    """
+
+    return base_html_wrapper(content, PREDISCLOSURE_SIGNATURE)
+
+
+def get_predisclosure_email_body(
+    predisclosure,
+    status,
+    link,
+    comment=None,
+    approver=False,
+    approver_status=None,
+    notification=None,
+    all_rejected=False,
+):
+
+# If every line is rejected, stop the workflow
+all_rejected = all(
+    line.latest_status.status == PreDisclosureLineStatusChoices.REJECTED
+    for line in predisclosure.lines.all()
+)
+
+if all_rejected:
+    finalize_workflow(
+        predisclosure,
+        request,
+        all_rejected=True,
+        notification=(
+            "All accounts were rejected at the current approval stage. "
+            "The workflow has stopped and requires NSO verification."
+        ),
+    )
+    return
+
+
+# If the workflow has reached its final approval stage
+if not next_status:
+    finalize_workflow(
+        predisclosure,
+        request,
+        all_rejected=False,
+        notification=(
+            "The approval workflow has reached its final stage. "
+            "Please verify the final account-level decisions."
+        ),
+    )
+    return
+
+email_body = get_predisclosure_email_body(
+    predisclosure=predisclosure,
+    status=status,
+    link=link,
+    notification=notification,
+    all_rejected=all_rejected,
+)
+
+
+
+
+
 def are_all_lines_rejected(predisclosure):
     lines = list(
         PreDisclosureLine.objects.filter(predisclosure=predisclosure)
