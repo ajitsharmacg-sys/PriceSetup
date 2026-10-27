@@ -1,3 +1,144 @@
+computed: {
+    // Keep your existing computed properties and add these two.
+
+    available_clusters() {
+        return [...new Set(
+            (this.cluster_mapping_data || [])
+                .map(item => item.cluster)
+                .filter(cluster => cluster)
+        )].sort();
+    },
+
+    available_countries() {
+        const selected_cluster = this.selected_predisclosure?.cluster;
+
+        if (!selected_cluster) {
+            return [];
+        }
+
+        return [...new Set(
+            (this.cluster_mapping_data || [])
+                .filter(item => item.cluster === selected_cluster)
+                .map(item => item.country)
+                .filter(country => country)
+        )].sort();
+    },
+},
+
+{% for field in predisclosure_form.visible_fields %}
+    <div class="col-md-4 mb-1" id="field_{{ field.name }}">
+        {{ field.errors }}
+
+        <label class="form-label" for="{{ field.id_for_label }}">
+            {{ field.label }}
+        </label>
+
+        {% if field.name == "cluster" %}
+            <select
+                class="form-select"
+                name="cluster"
+                id="{{ field.id_for_label }}"
+                v-model="selected_predisclosure.cluster"
+                @change="handle_change($event)"
+                required
+            >
+                <option value="">Select Cluster</option>
+                <option
+                    v-for="cluster in available_clusters"
+                    :key="cluster"
+                    :value="cluster"
+                >
+                    [[ cluster ]]
+                </option>
+            </select>
+        {% else %}
+            {{ field|add_attrs:"v-model=selected_predisclosure;@change=handle_change($event);" }}
+        {% endif %}
+
+        {% if field.help_text %}
+            <small class="form-text text-muted">
+                {{ field.help_text|safe }}
+            </small>
+        {% endif %}
+    </div>
+{% endfor %}
+
+
+{% elif field.name == "country" %}
+    <select
+        class="form-select"
+        :name="'country'"
+        :id="'country_' + index"
+        v-model="line.country"
+        @change="handle_line_change(index)"
+        required
+    >
+        <option value="">Select Country</option>
+        <option
+            v-for="country in available_countries"
+            :key="country"
+            :value="country"
+        >
+            [[ country ]]
+        </option>
+    </select>
+{% else %}
+    {{ field|add_attrs:":index=index;v-model=lines;@change=handle_line_change(index);@paste.prevent=paste_lines_from_excel(lines,index,$event)" }}
+{% endif %}
+
+
+add_line() {
+    const new_line = {
+        country: "",
+        products: [],
+        product_search: "",
+        sda_partner_level: [],
+        sda_partner_level_search: "",
+    };
+
+    if (this.is_edit_mode) {
+        new_line.id = "temp";
+        this.changes.new_lines_count++;
+    }
+
+    this.lines.push(new_line);
+},
+
+
+handle_change(event) {
+    const field = event.target.name;
+
+    switch (field) {
+        case "cluster":
+            this.lines.forEach((line, index) => {
+                if (!this.available_countries.includes(line.country)) {
+                    line.country = "";
+                    this.handle_line_change(index);
+                }
+            });
+            break;
+
+        case "product_category":
+            this.load_products();
+            break;
+
+        case "predisclosure_type":
+            this.resetDisclosureFields();
+
+            if (event.target.value === "PARTNER") {
+                this.load_sda_partner_levels();
+            } else {
+                this.sda_partner_levels = [];
+            }
+            break;
+    }
+},
+
+
+
+
+
+
 async load_country_clusters() {
     this.loading = true;
     this.country_cluster_data = [];
