@@ -1,3 +1,58 @@
+async load_country_clusters() {
+    this.loading = true;
+    this.country_cluster_data = [];
+
+    await fetch(api_endpoints.country_clusters)
+        .then(response => {
+            if (response.ok) {
+                return response.json();
+            }
+            return Promise.reject(response);
+        })
+        .then(data => {
+            this.country_cluster_data = data.results ?? data;
+            this.loading = false;
+        })
+        .catch(error => {
+            this.loading = false;
+            this.display_error(error);
+        });
+},
+
+country_cluster_data: [],
+
+async mounted() {
+    await this.load_country_clusters();
+
+    // Keep your existing initialization calls here.
+},
+
+available_countries() {
+    return [
+        ...new Set(
+            this.country_cluster_data
+                .filter(
+                    item =>
+                        item.cluster ===
+                        this.selected_predisclosure.cluster
+                )
+                .map(item => item.country)
+                .filter(country => country)
+        )
+    ];
+},
+
+available_clusters() {
+    return [
+        ...new Set(
+            this.country_cluster_data
+                .map(item => item.cluster)
+                .filter(cluster => cluster)
+        )
+    ];
+},
+
+
 class CountryClusterView(viewsets.ReadOnlyModelViewSet):
     permission_classes = [IsApplicationUser]
     serializer_class = CountryClusterSerializer
