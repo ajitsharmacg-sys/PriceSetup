@@ -1,0 +1,22 @@
+SELECT
+    p.id AS product_id,
+    p.product_name,
+    pl.predisc losureline_id,
+    pl.predisclosureproduct_id
+FROM dbo.predisclosure_predisclosureproduct p
+INNER JOIN dbo.predisclosure_predisclosureline_products pl
+    ON p.id = pl.predisclosureproduct_id;
+
+BEGIN TRANSACTION;
+
+DECLARE @ProductId INT = 123; -- Replace with the product ID
+
+DELETE FROM dbo.predisclosure_predisclosureline_products
+WHERE predisclosureproduct_id = @ProductId;
+
+DELETE FROM dbo.predisclosure_predisclosureproduct
+WHERE id = @ProductId;
+
+-- Verify before committing.
+-- COMMIT TRANSACTION;
+-- ROLLBACK TRANSACTION;
