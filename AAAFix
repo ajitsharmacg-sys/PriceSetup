@@ -1,3 +1,13 @@
+class CountryClusterView(viewsets.ReadOnlyModelViewSet):
+    permission_classes = [IsApplicationUser]
+    serializer_class = CountryClusterSerializer
+
+    def get_queryset(self):
+        return RegionMapping.objects.order_by(
+            "cluster", "country"
+        ).distinct()
+
+
 SELECT
     COLUMN_NAME,
     IS_NULLABLE,
