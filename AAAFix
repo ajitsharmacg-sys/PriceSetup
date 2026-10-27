@@ -1,22 +1,83 @@
-SELECT
-    p.id AS product_id,
-    p.product_name,
-    pl.predisc losureline_id,
-    pl.predisclosureproduct_id
-FROM dbo.predisclosure_predisclosureproduct p
-INNER JOIN dbo.predisclosure_predisclosureline_products pl
-    ON p.id = pl.predisclosureproduct_id;
+from django.contrib import admin
 
-BEGIN TRANSACTION;
+from predisclosure.models import (
+    PreDisclosure,
+    PreDisclosureStatus,
+    PreDisclosureLine,
+    PreDisclosureLineStatus,
+)
 
-DECLARE @ProductId INT = 123; -- Replace with the product ID
 
-DELETE FROM dbo.predisclosure_predisclosureline_products
-WHERE predisclosureproduct_id = @ProductId;
+@admin.register(PreDisclosure)
+class PreDisclosureAdmin(admin.ModelAdmin):
+    list_display = (
+        "predisclosure_id",
+        "region",
+        "predisclosure_type",
+        "product_category",
+        "meta_created_date",
+        "meta_created_by",
+    )
+    list_filter = (
+        "region",
+        "predisclosure_type",
+        "product_category",
+    )
+    search_fields = (
+        "predisclosure_id",
+        "region",
+    )
 
-DELETE FROM dbo.predisclosure_predisclosureproduct
-WHERE id = @ProductId;
 
--- Verify before committing.
--- COMMIT TRANSACTION;
--- ROLLBACK TRANSACTION;
+@admin.register(PreDisclosureStatus)
+class PreDisclosureStatusAdmin(admin.ModelAdmin):
+    list_display = (
+        "id",
+        "predisclosure",
+        "status",
+        "meta_created_date",
+        "meta_created_by",
+    )
+    list_filter = ("status",)
+    search_fields = (
+        "predisclosure__predisclosure_id",
+        "status",
+    )
+
+
+@admin.register(PreDisclosureLine)
+class PreDisclosureLineAdmin(admin.ModelAdmin):
+    list_display = (
+        "id",
+        "predisclosure",
+        "account_name",
+        "website",
+        "meeting_date",
+    )
+    search_fields = (
+        "predisclosure__predisclosure_id",
+        "account_name",
+        "website",
+    )
+    list_filter = (
+        "disclosed_last_2_years",
+        "nda_confirmed",
+        "disclosure_format",
+    )
+
+
+@admin.register(PreDisclosureLineStatus)
+class PreDisclosureLineStatusAdmin(admin.ModelAdmin):
+    list_display = (
+        "id",
+        "line",
+        "status",
+        "meta_created_date",
+        "meta_created_by",
+    )
+    list_filter = ("status",)
+    search_fields = (
+        "line__predisclosure__predisclosure_id",
+        "line__account_name",
+        "status",
+    )
