@@ -1,3 +1,88 @@
+from rest_framework import serializers
+from sntracking.models import RegionMapping
+
+
+class CountryClusterSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = RegionMapping
+        fields = ("cluster", "country")
+
+
+class CountryClusterView(viewsets.ReadOnlyModelViewSet):
+    permission_classes = [IsApplicationUser]
+    serializer_class = CountryClusterSerializer
+
+    def get_queryset(self):
+        queryset = RegionMapping.objects.all()
+
+        cluster = self.request.query_params.get("cluster")
+
+        if cluster:
+            queryset = queryset.filter(cluster__iexact=cluster)
+
+        return queryset.order_by("cluster", "country").distinct()
+
+
+computed: {
+    countries_by_cluster() {
+        return this.country_cluster_data.reduce((result, item) => {
+            if (!result[item.cluster]) {
+                result[item.cluster] = [];
+            }
+
+            result[item.cluster].push(item.country);
+
+            return result;
+        }, {});
+    },
+},
+
+
+data() {
+    return {
+        selected_cluster: null,
+        countries: [],
+        loading_countries: false,
+    };
+},
+
+methods: {
+    async load_countries_by_cluster(cluster) {
+        this.selected_cluster = cluster;
+        this.countries = [];
+
+        if (!cluster) {
+            return;
+        }
+
+        this.loading_countries = true;
+
+        try {
+            const response = await fetch(
+                `/api/country-clusters/?cluster=${encodeURIComponent(cluster)}`
+            );
+
+            if (!response.ok) {
+                throw new Error("Failed to load countries");
+            }
+
+            const data = await response.json();
+
+            this.countries = data.results
+                ? data.results.map(item => item.country)
+                : data.map(item => item.country);
+
+        } catch (error) {
+            console.error("Error loading countries:", error);
+            this.countries = [];
+        } finally {
+            this.loading_countries = false;
+        }
+    },
+},
+
+
+========================================
 from django.contrib import admin
 
 from predisclosure.models import (
