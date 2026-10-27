@@ -1,3 +1,12 @@
+SELECT
+    COLUMN_NAME,
+    IS_NULLABLE,
+    CHARACTER_MAXIMUM_LENGTH
+FROM INFORMATION_SCHEMA.COLUMNS
+WHERE TABLE_NAME = 'predisclosure_predisclosureline'
+  AND COLUMN_NAME = 'country';
+
+
 SELECT COUNT(*) AS TotalRows
 FROM dbo.predisclosure_predisclosureline;
 
