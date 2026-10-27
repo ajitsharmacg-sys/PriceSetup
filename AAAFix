@@ -1,3 +1,8 @@
+SELECT COUNT(*) AS TotalRows
+FROM dbo.predisclosure_predisclosureline;
+
+
+
 from rest_framework import serializers
 from sntracking.models import RegionMapping
 
