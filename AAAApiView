@@ -1,3 +1,90 @@
+
+from django.core.management.base import BaseCommand
+from django.db import transaction
+
+from sntracking.models import RegionMapping, EEAFlagChoices
+
+
+class Command(BaseCommand):
+    help = "Update null country clusters and insert missing countries."
+
+    # Country: (country_code, EEA flag, cluster)
+    REGION_MAPPING = {
+        "Albania": ("AL", EEAFlagChoices.OUTSIDE_EEA, "CCE"),
+        "Azerbaijan": ("AZ", EEAFlagChoices.OUTSIDE_EEA, "CCE"),
+        "Bosnia-Herzegovina": ("BA", EEAFlagChoices.OUTSIDE_EEA, "CCE"),
+        "Bulgaria": ("BG", EEAFlagChoices.OUTSIDE_EEA, "CCE"),
+        "Croatia": ("HR", EEAFlagChoices.OUTSIDE_EEA, "CCE"),
+        "Cyprus": ("CY", EEAFlagChoices.OUTSIDE_EEA, "CCE"),
+        "Georgia": ("GE", EEAFlagChoices.OUTSIDE_EEA, "CCE"),
+        "Greece": ("GR", EEAFlagChoices.EEA, "CCE"),
+        "Israel": ("IL", EEAFlagChoices.OUTSIDE_EEA, "CCE"),
+        "Kosovo": ("XK", EEAFlagChoices.OUTSIDE_EEA, "CCE"),
+        "Macedonia": ("MK", EEAFlagChoices.OUTSIDE_EEA, "CCE"),
+        "Malta": ("MT", EEAFlagChoices.EEA, "CCE"),
+        "Moldova": ("MD", EEAFlagChoices.OUTSIDE_EEA, "CCE"),
+        "Montenegro": ("ME", EEAFlagChoices.OUTSIDE_EEA, "CCE"),
+        "Romania": ("RO", EEAFlagChoices.EEA, "CCE"),
+        "Serbia": ("RS", EEAFlagChoices.OUTSIDE_EEA, "CCE"),
+        "Slovenia": ("SI", EEAFlagChoices.EEA, "CCE"),
+        "Ukraine": ("UA", EEAFlagChoices.OUTSIDE_EEA, "CCE"),
+        "Turkey": ("TR", EEAFlagChoices.OUTSIDE_EEA, "CCE"),
+        "Armenia": ("AM", EEAFlagChoices.OUTSIDE_EEA, "CCE"),
+        "Belarus": ("BY", EEAFlagChoices.OUTSIDE_EEA, "CCE"),
+        "Kazakhstan": ("KZ", EEAFlagChoices.OUTSIDE_EEA, "CCE"),
+        "Kyrgyzstan": ("KG", EEAFlagChoices.OUTSIDE_EEA, "CCE"),
+        "Tajikistan": ("TJ", EEAFlagChoices.OUTSIDE_EEA, "CCE"),
+        "Turkmenistan": ("TM", EEAFlagChoices.OUTSIDE_EEA, "CCE"),
+        "Uzbekistan": ("UZ", EEAFlagChoices.OUTSIDE_EEA, "CCE"),
+    }
+
+    def handle(self, *args, **options):
+        inserted = 0
+        updated = 0
+        unchanged = 0
+
+        with transaction.atomic():
+            for country, details in self.REGION_MAPPING.items():
+                country_code, eea_flag, cluster = details
+
+                # Find an existing record by country name
+                obj = RegionMapping.objects.filter(
+                    country__iexact=country
+                ).first()
+
+                if obj is None:
+                    RegionMapping.objects.create(
+                        country_code=country_code,
+                        country=country,
+                        eea_flag=eea_flag,
+                        cluster=cluster,
+                    )
+                    inserted += 1
+                    self.stdout.write(f"Inserted: {country}")
+                    continue
+
+                # Update only when cluster is NULL or blank
+                if not obj.cluster or not obj.cluster.strip():
+                    obj.cluster = cluster
+                    obj.save(update_fields=["cluster"])
+                    updated += 1
+                    self.stdout.write(f"Updated cluster: {country}")
+                else:
+                    unchanged += 1
+
+        self.stdout.write(
+            self.style.SUCCESS("Region mapping update completed.")
+        )
+        self.stdout.write(f"Inserted: {inserted}")
+        self.stdout.write(f"Updated: {updated}")
+        self.stdout.write(f"Unchanged: {unchanged}")
+
+
+
+
+
+
+
 if (
     aif &&
     aif.is_all_nso_enabled === false &&
