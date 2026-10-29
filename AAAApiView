@@ -6,23 +6,28 @@ from sntracking.models import RegionMapping, EEAFlagChoices
 
 
 class Command(BaseCommand):
-    help = "Update null country clusters and insert missing countries."
+    help = (
+        "Insert missing country mappings and update clusters "
+        "using exact country names."
+    )
 
-    # Country: (country_code, EEA flag, cluster)
     REGION_MAPPING = {
         "Albania": ("AL", EEAFlagChoices.OUTSIDE_EEA, "CCE"),
         "Azerbaijan": ("AZ", EEAFlagChoices.OUTSIDE_EEA, "CCE"),
-        "Bosnia-Herzegovina": ("BA", EEAFlagChoices.OUTSIDE_EEA, "CCE"),
-        "Bulgaria": ("BG", EEAFlagChoices.OUTSIDE_EEA, "CCE"),
-        "Croatia": ("HR", EEAFlagChoices.OUTSIDE_EEA, "CCE"),
-        "Cyprus": ("CY", EEAFlagChoices.OUTSIDE_EEA, "CCE"),
+        "Bosnia and Herzegovina": ("BA", EEAFlagChoices.OUTSIDE_EEA, "CCE"),
+        "Bulgaria": ("BG", EEAFlagChoices.EEA, "CCE"),
+        "Croatia": ("HR", EEAFlagChoices.EEA, "CCE"),
+        "Cyprus": ("CY", EEAFlagChoices.EEA, "CCE"),
         "Georgia": ("GE", EEAFlagChoices.OUTSIDE_EEA, "CCE"),
         "Greece": ("GR", EEAFlagChoices.EEA, "CCE"),
         "Israel": ("IL", EEAFlagChoices.OUTSIDE_EEA, "CCE"),
-        "Kosovo": ("XK", EEAFlagChoices.OUTSIDE_EEA, "CCE"),
-        "Macedonia": ("MK", EEAFlagChoices.OUTSIDE_EEA, "CCE"),
+        "The Former Yugoslav Republic of Macedonia": (
+            "MK",
+            EEAFlagChoices.OUTSIDE_EEA,
+            "CCE",
+        ),
         "Malta": ("MT", EEAFlagChoices.EEA, "CCE"),
-        "Moldova": ("MD", EEAFlagChoices.OUTSIDE_EEA, "CCE"),
+        "Republic of Moldova": ("MD", EEAFlagChoices.OUTSIDE_EEA, "CCE"),
         "Montenegro": ("ME", EEAFlagChoices.OUTSIDE_EEA, "CCE"),
         "Romania": ("RO", EEAFlagChoices.EEA, "CCE"),
         "Serbia": ("RS", EEAFlagChoices.OUTSIDE_EEA, "CCE"),
@@ -36,6 +41,8 @@ class Command(BaseCommand):
         "Tajikistan": ("TJ", EEAFlagChoices.OUTSIDE_EEA, "CCE"),
         "Turkmenistan": ("TM", EEAFlagChoices.OUTSIDE_EEA, "CCE"),
         "Uzbekistan": ("UZ", EEAFlagChoices.OUTSIDE_EEA, "CCE"),
+        "Kosovo": ("XK", EEAFlagChoices.OUTSIDE_EEA, "CCE"),
+        "Kaliningrad": ("RU", EEAFlagChoices.OUTSIDE_EEA, "CCE"),
     }
 
     def handle(self, *args, **options):
@@ -43,41 +50,77 @@ class Command(BaseCommand):
         updated = 0
         unchanged = 0
 
-        with transaction.atomic():
-            for country, details in self.REGION_MAPPING.items():
-                country_code, eea_flag, cluster = details
+        self.stdout.write(
+            self.style.NOTICE(
+                f"Processing {len(self.REGION_MAPPING)} country mappings..."
+            )
+        )
 
-                # Find an existing record by country name
-                obj = RegionMapping.objects.filter(
-                    country__iexact=country
+        with transaction.atomic():
+            for country, values in self.REGION_MAPPING.items():
+                country_code, eea_flag, cluster = values
+
+                # Match using the exact country name
+                region = RegionMapping.objects.filter(
+                    country=country
                 ).first()
 
-                if obj is None:
+                if region is None:
+                    # Insert a new record if the country does not exist
                     RegionMapping.objects.create(
-                        country_code=country_code,
                         country=country,
+                        country_code=country_code,
                         eea_flag=eea_flag,
                         cluster=cluster,
                     )
+
                     inserted += 1
-                    self.stdout.write(f"Inserted: {country}")
+                    self.stdout.write(
+                        self.style.SUCCESS(
+                            f"Inserted: {country} -> {cluster}"
+                        )
+                    )
                     continue
 
-                # Update only when cluster is NULL or blank
-                if not obj.cluster or not obj.cluster.strip():
-                    obj.cluster = cluster
-                    obj.save(update_fields=["cluster"])
+                # Update cluster if it is NULL, blank, or different
+                current_cluster = region.cluster
+
+                if (
+                    not current_cluster
+                    or not current_cluster.strip()
+                    or current_cluster != cluster
+                ):
+                    region.cluster = cluster
+                    region.save(update_fields=["cluster"])
+
                     updated += 1
-                    self.stdout.write(f"Updated cluster: {country}")
+                    self.stdout.write(
+                        self.style.SUCCESS(
+                            f"Updated: {country} "
+                            f"({current_cluster!r} -> {cluster})"
+                        )
+                    )
                 else:
                     unchanged += 1
+                    self.stdout.write(
+                        f"Unchanged: {country} (cluster: {cluster})"
+                    )
 
+        # Display execution summary
+        total = inserted + updated + unchanged
+
+        self.stdout.write("")
         self.stdout.write(
-            self.style.SUCCESS("Region mapping update completed.")
+            self.style.SUCCESS(
+                "Region mapping update completed successfully."
+            )
         )
+        self.stdout.write(f"Total countries configured: {len(self.REGION_MAPPING)}")
         self.stdout.write(f"Inserted: {inserted}")
         self.stdout.write(f"Updated: {updated}")
         self.stdout.write(f"Unchanged: {unchanged}")
+        self.stdout.write(f"Total processed: {total}")
+
 
 
 
