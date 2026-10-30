@@ -1,3 +1,13 @@
+// A single cell/value can be pasted normally.
+// Multi-cell Excel data will be processed below.
+if (!text.includes("\t") && !text.includes("\n")) {
+    this.loading = false;
+    return;
+}
+
+
+
+
 
 from django.core.management.base import BaseCommand
 from django.db import transaction
