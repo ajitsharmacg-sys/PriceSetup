@@ -1,3 +1,21 @@
+is_admin() {
+    const admin_role = this.workflow?.ADMIN_ROLE;
+
+    if (!admin_role || !this.user_role) {
+        return false;
+    }
+
+    return this.user_role
+        .split(",")
+        .map(role => role.trim())
+        .includes(admin_role);
+},
+
+if (this.is_admin()) {
+        return ["APPROVED", "REJECTED"];
+    }
+
+
 get_line_status_choices(line) {
     const current_status = line.predisclosure_line_status;
 
