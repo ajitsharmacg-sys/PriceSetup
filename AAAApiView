@@ -5,6 +5,13 @@ if (!text.includes("\t") && !text.includes("\n")) {
     return;
 }
 
+console.log("API line fields:", Object.keys(api_fields));
+    console.log("nda_confirmed option:", api_fields.nda_confirmed);
+    console.log(
+        "information_to_be_disclosed option:",
+        api_fields.information_to_be_disclosed
+    );
+
 
 
 
