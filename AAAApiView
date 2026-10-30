@@ -1,3 +1,33 @@
+get_line_status_choices(line) {
+    const current_status = line.predisclosure_line_status;
+
+    const required_approver_type =
+        this.workflow?.STATUS_TO_APPROVER_TYPE?.[current_status];
+
+    const is_current_user_approver =
+        this.USER_APPROVER_TYPES.includes(required_approver_type);
+
+    console.log("Selected line:", line.account_name);
+    console.log("Line status:", current_status);
+    console.log("Required approver type:", required_approver_type);
+    console.log("User approver types:", this.USER_APPROVER_TYPES);
+    console.log("Is current user approver:", is_current_user_approver);
+
+    if (!current_status || !required_approver_type || !is_current_user_approver) {
+        return [];
+    }
+
+    return ["APPROVED", "REJECTED"];
+}
+
+
+
+
+
+
+
+
+
 // A single cell/value can be pasted normally.
 // Multi-cell Excel data will be processed below.
 if (!text.includes("\t") && !text.includes("\n")) {
