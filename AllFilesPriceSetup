@@ -1,0 +1,836 @@
+notification
+-------------------------
+"""Notification dispatch and recipient selection for Price Setup Request."""
+
+from django.contrib.auth import get_user_model
+from django.contrib.auth.models import Group
+
+from common.email_notifications import send_email, send_email_with_attachments
+from pricerequest.models import AnnouncementMailLink, TicketStatusChoices
+from pricerequest.roles import PM_USER, SALES_OPS_USER
+from pricerequest.email_template import (
+    prepare_pm_email_body,
+    prepare_pm_reject_body,
+    prepare_salesops_reject_body,
+    prepare_pm_closed_body,
+    prepare_pm_validate_body,
+    prepare_drbg_announcement_body,
+    prepare_itcg_announcement_body,
+)
+
+UserModel = get_user_model()
+
+def prepare_emails_from_group(group_name):
+    if not group_name:
+        return ""
+    group = Group.objects.filter(name=group_name).first()
+    if not group:
+        return ""
+    emails = list(UserModel.objects.filter(groups=group).exclude(email="").values_list("email", flat=True))
+    if group_name == SALES_OPS_USER:
+        emails.append("cci.pricing@canon-europe.com")
+    return ";".join(dict.fromkeys(emails))
+
+
+def _prepare_email_body_for_drbg_itcg(status, request, ticket, email_template, mail_links):
+    if status == TicketStatusChoices.ITCG_ANNOUNCEMENTS_COMPLETED:
+        return prepare_itcg_announcement_body(request, ticket, email_template, mail_links)
+    if status in (TicketStatusChoices.PENDING_ITCG_ANNOUNCEMENTS, TicketStatusChoices.DRBG_ANNOUNCEMENTS_COMPLETED):
+        return prepare_drbg_announcement_body(request, ticket, email_template, mail_links)
+    return ""
+
+
+def _prepare_email_body_from_status(status, request, ticket, comments):
+    status_function_map = {
+        TicketStatusChoices.PENDING_PM_VALIDATION: prepare_pm_validate_body,
+        TicketStatusChoices.PENDING_SALESOPS_VALIDATION: prepare_pm_email_body,
+        TicketStatusChoices.PM_REJECTED: prepare_pm_reject_body,
+        TicketStatusChoices.SALESOPS_REJECTED: prepare_salesops_reject_body,
+        TicketStatusChoices.CLOSED: prepare_pm_closed_body,
+    }
+    body_function = status_function_map.get(status)
+    return body_function(request, ticket, comments) if body_function else ""
+
+
+def _prepare_email_subject_from_status(status, ticket):
+    ticket_number = ticket.ticket_number
+    subject_map = {
+        TicketStatusChoices.PENDING_PM_VALIDATION: f"{ticket_number} - Price Setup Request to be validated by PM.",
+        TicketStatusChoices.PENDING_SALESOPS_VALIDATION: f"{ticket_number} - New Price Setup Request Submitted.",
+        TicketStatusChoices.PM_REJECTED: f"{ticket_number} - Price Setup Request rejected by PM.",
+        TicketStatusChoices.SALESOPS_REJECTED: f"{ticket_number} - Price Setup Request rejected by SalesOps.",
+        TicketStatusChoices.CLOSED: f"{ticket_number} - Price Setup Request closed by PM.",
+        TicketStatusChoices.ITCG_ANNOUNCEMENTS_COMPLETED: f"{ticket_number} - DR Announcements.",
+    }
+    if status in (TicketStatusChoices.PENDING_ITCG_ANNOUNCEMENTS, TicketStatusChoices.DRBG_ANNOUNCEMENTS_COMPLETED):
+        return f"{ticket_number} - ER Announcements."
+    return subject_map.get(status, f"{ticket_number} - Price Setup for new request")
+
+
+def send_emails_to_pm_or_salesops(user, status, request, status_record, comments, ticket, attachments=None):
+    attachments = attachments or []
+    subject = _prepare_email_subject_from_status(status, ticket)
+    body = _prepare_email_body_from_status(status, request, ticket, comments)
+    cc = ticket.email_cc if ticket.email_cc not in (None, "", "null") else ""
+    if user == PM_USER:
+        creator = getattr(ticket, "meta_created_by", None)
+        to_emails = getattr(creator, "email", "") if creator else ""
+    else:
+        to_emails = prepare_emails_from_group(user)
+    if not to_emails or not body:
+        return
+    if attachments:
+        send_email_with_attachments(to=to_emails, subject=subject, body=body, cc=cc, attachments=attachments)
+    else:
+        send_email(to=to_emails, subject=subject, body=body, cc=cc)
+
+
+def send_drbg_or_itcg_announcements(to_emails, status, request, ticket, email_template, cc_emails, mail_links, attachments=None):
+    attachments = attachments or []
+    subject = _prepare_email_subject_from_status(status, ticket)
+    body = _prepare_email_body_for_drbg_itcg(status, request, ticket, email_template, mail_links)
+    cc = cc_emails if cc_emails not in (None, "", "null") else ""
+    if not to_emails or not body:
+        return
+    # Preserve previous behavior: announcement messages are sent only with attachments.
+    if attachments:
+        send_email_with_attachments(to=to_emails, subject=subject, body=body, cc=cc, attachments=attachments)
+
+
+def handle_announcement_emails(request, ticket, status, attachments):
+    post = request.POST
+    if status in (TicketStatusChoices.PENDING_ITCG_ANNOUNCEMENTS, TicketStatusChoices.DRBG_ANNOUNCEMENTS_COMPLETED):
+        links = AnnouncementMailLink.objects.filter(user_type="DRBG")
+        send_drbg_or_itcg_announcements(post.get("drbg_to_emails"), status, request, ticket, post.get("drbg_email_template"), post.get("drbg_cc_emails"), links, attachments)
+    if status == TicketStatusChoices.ITCG_ANNOUNCEMENTS_COMPLETED:
+        links = AnnouncementMailLink.objects.filter(user_type="ITCG")
+        send_drbg_or_itcg_announcements(post.get("itcg_to_emails"), status, request, ticket, post.get("itcg_email_template"), post.get("itcg_cc_emails"), links, attachments)
+
+
+def handle_pm_or_salesops_emails(request, ticket, status_record, status, comments, attachments):
+    if status in (TicketStatusChoices.PENDING_PM_VALIDATION, TicketStatusChoices.SALESOPS_REJECTED):
+        send_emails_to_pm_or_salesops(PM_USER, status, request, status_record, comments, ticket, attachments)
+    if status in (TicketStatusChoices.PENDING_SALESOPS_VALIDATION, TicketStatusChoices.PM_REJECTED, TicketStatusChoices.CLOSED):
+        send_emails_to_pm_or_salesops(SALES_OPS_USER, status, request, status_record, comments, ticket, attachments)
+
+email_teplate
+========================
+
+default_html_template = """<!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    </head>
+    <body>
+    <h4>Dear All,</h4>"""
+
+
+default_salesops_signature_template = """<h5>Kind Regards</h5>
+<h5>Sales Operations DR</h5>
+<h6>We Do</h6>
+    <ul style="list-style-type: none; padding-left: 0;">
+        <li><small>1.ELP ER DR INFL CIF & E-com price setup</small></li>
+        <li><small>2.Local RSP setup & management</small></li>
+        <li><small>3.AIF setup & management</small></li>
+        <li><small>4.On-Invoice Oracle Modifiers setup</small></li>
+    </ul>
+</body>
+</html>
+"""
+
+default_pm_signature_template = """<h5>Kind Regards</h5>
+<h5>PM Team DR</h5>
+</body>
+</html>"""
+
+
+def prepare_pm_email_body(request, ticket, comments):
+    template_text = f"""<h4>A Price Setup Request has been submitted or updated by the PM.</h4>
+        <h4>Please take the necessary steps to set up the price list.</h4>
+        <br>"""
+
+    if comments is not None and comments != "null":
+        template_text += f"Request Comment: {comments}<br>"
+
+    template_text += f"""Request Number: {ticket.ticket_number} <br>
+        Link - {request.build_absolute_uri('/pricerequest/')}/<br>
+        """
+
+    pm_email_output = (
+        f"{default_html_template} {template_text} {default_pm_signature_template}"
+    )
+    return pm_email_output
+
+
+def prepare_pm_reject_body(request, ticket, comments):
+    template_text = f"""<h4>The Price Setup validation request has been rejected.</h4>
+    <h4>We will resubmit the price request with the correct price, which should then be validated and updated in the Oracle master database.</h4>
+    </br>"""
+    if comments is not None and comments != "null":
+        template_text += f"Request Comment: {comments}<br>"
+
+    template_text += f"""Request Number: {ticket.ticket_number} <br>
+        Link - {request.build_absolute_uri('/pricerequest/')}/<br>
+        """
+    pm_reject_output = (
+        f"{default_html_template} {template_text} {default_pm_signature_template}"
+    )
+    return pm_reject_output
+
+
+def prepare_salesops_reject_body(request, ticket, comments):
+    template_text = f"""<h4>The Price Setup Request has been rejected.</h4>
+    <h4>Ensure all details are accurate and resubmit the price request accordingly.</h4></br>"""
+
+    if comments is not None and comments != "null":
+        template_text += f"Request Comment: {comments}<br>"
+
+    template_text += f"""Request Number: {ticket.ticket_number} <br>
+        Link - {request.build_absolute_uri('/pricerequest/')}/<br>
+        """
+    salesops_reject_output = (
+        f"{default_html_template} {template_text} {default_salesops_signature_template}"
+    )
+    return salesops_reject_output
+
+
+def prepare_pm_closed_body(request, ticket, comments):
+    template_text = f"""<h4>The Price Setup has been validated and the request has been closed by the PM.</h4></br>"""
+
+    if comments is not None and comments != "null":
+        template_text += f"Request Comment: {comments}<br>"
+
+    template_text += f"""Request Number: {ticket.ticket_number} <br>
+        Link - {request.build_absolute_uri('/pricerequest/')}/<br>
+        """
+
+    pm_closed_output = (
+        f"{default_html_template} {template_text} {default_pm_signature_template}"
+    )
+    return pm_closed_output
+
+
+def prepare_pm_validate_body(request, ticket, comments):
+    template_text = f"""<h4>The Price Setup Request has been completed. Please validate the setup and finalize the request.</h4></br>"""
+    if comments is not None and comments != "null":
+        template_text += f"Request Comment: {comments}<br>"
+
+    template_text += f"""Request Number: {ticket.ticket_number} <br>
+        Link - {request.build_absolute_uri('/pricerequest/')}/<br>
+        """
+    pm_validate_output = (
+        f"{default_html_template} {template_text} {default_salesops_signature_template}"
+    )
+    return pm_validate_output
+
+
+def prepare_drbg_announcement_body(request, ticket, email_template, links):
+    def add_cell(value):
+        return f"<td style='padding: 10px; border: 1px solid #ddd;'>{value if value is not None else ''}</td>"
+
+    drbg_email_body = """
+        <p>Dear All,</p>
+        <p>Please be advised about the new ELPs..</p>
+        <br>
+        """
+    if links:
+        for link in links:
+            drbg_email_body += (
+                f"<p><a href='{link.link_url}' target='_blank'>{link.link_name}</a></p>"
+            )
+
+    drbg_email_body += """
+        <table style="width: 100%; border-collapse: collapse; border: 1px solid #ddd;">
+            <thead>
+                <tr>
+                    <th style="padding: 10px; border: 1px solid #ddd; background-color: #6495ED; color: white;">Product Group</th>
+                    <th style="padding: 10px; border: 1px solid #ddd; background-color: #6495ED; color: white;">Model</th>
+                    <th style="padding: 10px; border: 1px solid #ddd; background-color: #6495ED; color: white;">Mercury Code</th>
+                    <th style="padding: 10px; border: 1px solid #ddd; background-color: #6495ED; color: white;">Product Name</th>
+                    <th style="padding: 10px; border: 1px solid #ddd; background-color: #FFB6C1; color: white;">ELP(€)</th>
+                    <th style="padding: 10px; border: 1px solid #ddd; background-color: #FFB6C1; color: white;">CEE(€)</th>
+                    <th style="padding: 10px; border: 1px solid #ddd; background-color: #FFB6C1; color: white;">CEA(€)</th>
+                    <th style="padding: 10px; border: 1px solid #ddd; background-color: #FFB6C1; color: white;">CME(€)</th>
+                    <th style="padding: 10px; border: 1px solid #ddd; background-color: #FFB6C1; color: white;">CSA(€)</th>
+                    <th style="padding: 10px; border: 1px solid #ddd; background-color: #FFA500; color: white;">Effective Date</th>
+                </tr>
+            </thead>
+            <tbody>
+    """
+
+    for line in ticket.ticket_lines.all():
+        has_any_price = any(
+            [
+                line.cee_price,
+                line.cea_price,
+                line.cme_price,
+                line.csa_price,
+            ]
+        )
+        if has_any_price:
+            drbg_email_body += f"""
+                <tr>
+                    {add_cell(line.product_group)}
+                    {add_cell(line.model_budget)}
+                    {add_cell(line.mercury)}
+                    {add_cell(line.product_name)}
+                    {add_cell(line.pelp_price)}
+                    {add_cell(line.cee_price)}
+                    {add_cell(line.cea_price)}
+                    {add_cell(line.cme_price)}
+                    {add_cell(line.csa_price)}
+                    {add_cell((ticket.cif_start_date.strftime("%d-%b-%Y") if ticket.cif_start_date else ""))}
+                </tr>
+            """
+
+    drbg_email_body += """
+            </tbody>
+        </table>
+        """
+
+    if email_template != "null":
+        drbg_email_body += f"<p><strong></strong> {email_template}</p><br>"
+
+    drbg_email_body += """
+        <br><br>
+        <p>Kind Regards,<br>
+        Sales Operations DR</p>
+        <p>
+            We Do:<br>
+            1. ELP ER DR INFL CIF & E-com price setup<br>
+            2. Local RSP setup & management<br>
+            3. AIF setup & management<br>
+            4. On-Invoice Oracle Modifiers setup
+        </p>
+    """
+
+    return drbg_email_body
+
+
+def prepare_itcg_announcement_body(request, ticket, email_template, links):
+
+    def add_cell(value):
+        return f"<td style='padding: 10px; border: 1px solid #ddd;'>{value if value is not None else ''}</td>"
+
+    itcg_email_template = "" if email_template == "null" else email_template
+
+    itcg_email_body = """
+        <p>Dear All,</p>
+        <p>Please be advised about the new ELPs..</p>
+        <br>
+        """
+    itcg_email_body += f"""\
+        <p><b><span style="color: red;">
+        If you are not happy with Draft RSPs calculated by system; please update your RSP OVERRIDES in the SharePoint link provided below by {itcg_email_template}.
+        </span></b></p>
+        """
+
+    if links:
+        for link in links:
+            itcg_email_body += (
+                f"<p><a href='{link.link_url}' target='_blank'>{link.link_name}</a></p>"
+            )
+
+    itcg_email_body += """
+        <small>
+            <p><em>*Please note the other 2nd layers for the below items will be priced accordingly.</em></p>
+
+            <p><em>**For Transfer Price list changes; this is only available to country directors, PBD managers and delegates, Product Management, PSBD & Finance.</em><br>
+            Please submit a request for access to the CCI Pricing inbox copying your PBD manager or country director.</p>
+        </small>
+        """
+
+    itcg_email_body += """
+        <table style="width: 100%; border-collapse: collapse; border: 1px solid #ddd;">
+            <thead>
+                <tr>
+                    <th style="padding: 10px; border: 1px solid #ddd; background-color: #6495ED; color: white;">Product Group</th>
+                    <th style="padding: 10px; border: 1px solid #ddd; background-color: #6495ED; color: white;">Model</th>
+                    <th style="padding: 10px; border: 1px solid #ddd; background-color: #6495ED; color: white;">Mercury Code</th>
+                    <th style="padding: 10px; border: 1px solid #ddd; background-color: #6495ED; color: white;">Product Name</th>
+                    <th style="padding: 10px; border: 1px solid #ddd; background-color: #FFB6C1; color: white;">ELP(€)</th>
+                    <th style="padding: 10px; border: 1px solid #ddd; background-color: #FFA500; color: white;">Effective Date</th>
+                </tr>
+            </thead>
+            <tbody>
+    """
+
+    for line in ticket.ticket_lines.all():
+        has_any_price = any(
+            [
+                line.pelp_price,
+            ]
+        )
+        if has_any_price:
+            itcg_email_body += f"""
+                <tr>
+                    {add_cell(line.product_group)}
+                    {add_cell(line.model_budget)}
+                    {add_cell(line.mercury)}
+                    {add_cell(line.product_name)}
+                    {add_cell(line.pelp_price)}
+                    {add_cell((ticket.elp_start_date.strftime("%d-%b-%Y") if ticket.elp_start_date else ""))}
+                </tr>
+            """
+
+    itcg_email_body += """
+            </tbody>
+        </table>
+        <br><br>
+        <p>Kind Regards,<br>
+        Sales Operations DR</p>
+        <p>
+            We Do:<br>
+            1. ELP ER DR INFL CIF & E-com price setup<br>
+            2. Local RSP setup & management<br>
+            3. AIF setup & management<br>
+            4. On-Invoice Oracle Modifiers setup
+        </p>
+    """
+
+    return itcg_email_body
+
+
+api_view
+=====================
+import base64
+
+from django.core.exceptions import ObjectDoesNotExist
+from django_filters.rest_framework import DjangoFilterBackend
+from rest_framework import filters, status, viewsets
+from rest_framework.exceptions import PermissionDenied, ValidationError
+from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
+from rest_framework.pagination import PageNumberPagination
+from django.utils import timezone
+
+from pricerequest.api_permissions import IsApplicationUser
+from pricerequest.filters import TicketByStatusFilter
+from pricerequest.models import (
+    Ticket, TicketLine, TicketStatus, CCIPriceList, ContactEmails,
+    TicketStatusChoices, AnnouncementMailLink,
+)
+from pricerequest.roles import ADMIN_ROLE
+from pricerequest.serializers import (
+    TicketLineReadSerializer, TicketLineWriteSerializer,
+    TicketStatusSerializer, TicketReadSerializer, TicketWriteSerializer,
+    CCIPriceListSerializer, ContactEmailsSerializer,
+    AnnouncementMailLinkSerializer,
+)
+from pricerequest.workflow import (
+    get_user_roles, is_valid_ticket_transition,
+    is_role_allowed_for_ticket_status, get_intermediate_statuses,
+)
+from pricerequest.notification import (
+    handle_announcement_emails, handle_pm_or_salesops_emails,
+)
+
+
+class StandardPagination(PageNumberPagination):
+    page_size = 8
+    page_size_query_param = "page_size"
+    max_page_size = 25
+
+
+def get_ticket_status(ticket_id):
+    """Return the most recently created status history row for a ticket."""
+    return TicketStatus.objects.filter(ticket_number_id=ticket_id).order_by("-id").first()
+
+
+class TicketView(viewsets.ModelViewSet):
+    permission_classes = [IsApplicationUser]
+    queryset = Ticket.objects.all()
+    pagination_class = StandardPagination
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter, TicketByStatusFilter]
+    filterset_fields = {
+        "id": ["exact"],
+        "ticket_number": ["exact"],
+        "meta_created_date": ["exact", "gt", "lt", "gte", "lte"],
+        "meta_edited_date": ["exact", "gt", "lt", "gte", "lte"],
+        "start_date": ["exact", "gt", "lt", "gte", "lte"],
+        "end_date": ["exact", "gt", "lt", "gte", "lte"],
+    }
+    search_fields = ["ticket_number", "subject"]
+    ordering_fields = ["ticket_number", "meta_created_date", "meta_edited_date", "start_date", "end_date"]
+    ordering = ["ticket_number"]
+
+    def get_serializer_class(self):
+        if self.action in ("create", "update", "partial_update"):
+            return TicketWriteSerializer
+        return TicketReadSerializer
+
+    def perform_create(self, serializer):
+        email_list = self.request.data.get("email_cc")
+        ticket = serializer.save(meta_created_by=self.request.user, email_cc=email_list)
+        TicketStatus.objects.create(
+            ticket_number=ticket,
+            status=TicketStatusChoices.DRAFT,
+            meta_created_by=self.request.user,
+        )
+
+    def perform_update(self, serializer):
+        ticket_id = self.get_object().pk
+        current_status = get_ticket_status(ticket_id)
+        editable_statuses = {
+            TicketStatusChoices.DRAFT,
+            TicketStatusChoices.PM_REJECTED,
+            TicketStatusChoices.SALESOPS_REJECTED,
+        }
+        if not current_status or current_status.status not in editable_statuses:
+            raise PermissionDenied("You can't edit this Price Setup Request!")
+        serializer.save(
+            meta_edited_by=self.request.user,
+            meta_edited_date=timezone.now(),
+            email_cc=self.request.data.get("email_cc"),
+        )
+
+    def perform_destroy(self, instance):
+        current_status = get_ticket_status(instance.pk)
+        deletable_statuses = {
+            TicketStatusChoices.DRAFT,
+            TicketStatusChoices.PM_REJECTED,
+            TicketStatusChoices.SALESOPS_REJECTED,
+        }
+        is_admin = self.request.user.groups.filter(name=ADMIN_ROLE).exists()
+        if (current_status and current_status.status in deletable_statuses) or is_admin:
+            return super().perform_destroy(instance)
+        raise PermissionDenied(f"Only {ADMIN_ROLE} can delete this request.")
+
+
+class TicketLineView(viewsets.ModelViewSet):
+    permission_classes = [IsApplicationUser]
+    queryset = TicketLine.objects.all()
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_fields = {"ticket_number": ["exact"]}
+
+    def get_serializer_class(self):
+        if self.action in ("create", "update", "partial_update"):
+            return TicketLineWriteSerializer
+        return TicketLineReadSerializer
+
+    def perform_create(self, serializer):
+        serializer.save(meta_created_by=self.request.user)
+
+    def perform_update(self, serializer):
+        serializer.save(meta_edited_by=self.request.user, meta_edited_date=timezone.now())
+
+
+class TicketStatusView(viewsets.ModelViewSet):
+    permission_classes = [IsApplicationUser]
+    parser_classes = [MultiPartParser, FormParser, JSONParser]
+    queryset = TicketStatus.objects.all()
+    serializer_class = TicketStatusSerializer
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_fields = {
+        "ticket_number": ["exact"],
+        "meta_created_date": ["exact", "gt", "lt", "gte", "lte"],
+    }
+    search_fields = ["status"]
+    ordering_fields = ["meta_created_date"]
+    ordering = ["meta_created_date"]
+
+    def create(self, request, *args, **kwargs):
+        # Multipart requests carry status and ticket_number in request.POST; JSON requests use request.data.
+        response = super().create(request, *args, **kwargs)
+        return response
+
+    def perform_create(self, serializer):
+        files = self.request.FILES.getlist("Upload_files")
+        data = self.request.data
+        comments = data.get("comment")
+        target_status = data.get("status")
+        ticket_number = data.get("ticket_number")
+        if comments in ("", None, "null"):
+            comments = None
+        if not target_status or not ticket_number:
+            raise ValidationError({"detail": "Both ticket_number and status are required."})
+
+        try:
+            ticket = Ticket.objects.get(ticket_number=ticket_number)
+        except Ticket.DoesNotExist:
+            raise ValidationError({"ticket_number": "Ticket not found."})
+
+        current_status_record = get_ticket_status(ticket.pk)
+        if not current_status_record:
+            raise ValidationError({"status": "No initial status exists for this ticket."})
+        current_status = current_status_record.status
+
+        if not is_valid_ticket_transition(current_status, target_status):
+            raise ValidationError({"status": f"Invalid status transition from {current_status} to {target_status}."})
+
+        user_roles = get_user_roles(self.request.user)
+        if not is_role_allowed_for_ticket_status(user_roles, target_status):
+            raise PermissionDenied(f"Your role is not allowed to set status {target_status}.")
+
+        # Save the intermediate history records configured in workflow.py first.
+        for intermediate_status in get_intermediate_statuses(ticket, target_status):
+            TicketStatus.objects.create(
+                ticket_number=ticket,
+                status=intermediate_status,
+                comments=comments,
+                meta_created_by=self.request.user,
+            )
+
+        instance = serializer.save(
+            ticket_number=ticket,
+            status=target_status,
+            comments=comments,
+            meta_created_by=self.request.user,
+        )
+
+        attachments = self.process_files(files)
+        handle_announcement_emails(self.request, ticket, target_status, attachments)
+        handle_pm_or_salesops_emails(
+            self.request, ticket, instance, target_status, comments, attachments
+        )
+
+    @staticmethod
+    def process_files(files):
+        attachment_list = []
+        for file_obj in files:
+            encoded = base64.b64encode(file_obj.read()).decode("utf-8")
+            attachment_list.append({"Name": file_obj.name, "ContentBytes": encoded})
+        return attachment_list
+
+
+class CCIPriceListView(viewsets.ReadOnlyModelViewSet):
+    queryset = CCIPriceList.objects.using("elppricelist").all()
+    permission_classes = [IsApplicationUser]
+    serializer_class = CCIPriceListSerializer
+    filter_backends = [DjangoFilterBackend]
+    filterset_fields = {"mercury_code_8": ["exact", "in"]}
+
+
+class ContactEmailsView(viewsets.ReadOnlyModelViewSet):
+    permission_classes = [IsApplicationUser]
+    queryset = ContactEmails.objects.all()
+    serializer_class = ContactEmailsSerializer
+    filter_backends = [DjangoFilterBackend]
+    filterset_fields = {"user_type": ["exact"]}
+
+
+class AnnouncementMailLinkView(viewsets.ReadOnlyModelViewSet):
+    permission_classes = [IsApplicationUser]
+    queryset = AnnouncementMailLink.objects.all()
+    serializer_class = AnnouncementMailLinkSerializer
+    filter_backends = [DjangoFilterBackend]
+    filterset_fields = {"user_type": ["exact"]}
+
+
+serializer
+===================
+from rest_framework import serializers
+from common.serializers import CanonUserSimpleSerializer
+from pricerequest.models import (
+    Ticket, TicketLine, TicketStatus, CCIPriceList, ContactEmails,
+    AnnouncementMailLink,
+)
+
+
+class TicketLineReadSerializer(serializers.ModelSerializer):
+    meta_created_by = serializers.StringRelatedField(read_only=True, label="Created By")
+    meta_edited_by = serializers.StringRelatedField(read_only=True, label="Last Edited By")
+
+    class Meta:
+        model = TicketLine
+        fields = "__all__"
+        read_only_fields = ("meta_created_date", "meta_created_by", "meta_edited_date", "meta_edited_by")
+
+
+class TicketLineWriteSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = TicketLine
+        fields = "__all__"
+        read_only_fields = ("meta_created_date", "meta_created_by", "meta_edited_date", "meta_edited_by")
+
+
+# Backwards-compatible name if any existing code imports TicketLineSerializer.
+class TicketLineSerializer(TicketLineReadSerializer):
+    pass
+
+
+class TicketStatusSerializer(serializers.ModelSerializer):
+    meta_created_by = serializers.StringRelatedField(read_only=True, label="Created By")
+
+    class Meta:
+        model = TicketStatus
+        fields = "__all__"
+        read_only_fields = ("meta_created_by", "meta_created_date")
+
+
+class TicketReadSerializer(serializers.ModelSerializer):
+    meta_created_by = serializers.SerializerMethodField(label="Created By")
+    meta_edited_by = serializers.SerializerMethodField(label="Last Edited By")
+    aif_status = serializers.SerializerMethodField(label="Status")
+
+    class Meta:
+        model = Ticket
+        fields = "__all__"
+        read_only_fields = ("meta_created_date", "meta_created_by", "meta_edited_date", "meta_edited_by")
+
+    def get_meta_created_by(self, obj):
+        user = getattr(obj, "meta_created_by", None)
+        if not user:
+            return None
+        return user.get_full_name() or str(user)
+
+    def get_meta_edited_by(self, obj):
+        user = getattr(obj, "meta_edited_by", None)
+        if not user:
+            return None
+        return user.get_full_name() or str(user)
+
+    def get_aif_status(self, obj):
+        latest = obj.status_history.order_by("-id").first() if hasattr(obj, "status_history") else None
+        if latest is None:
+            # Fall back to the default reverse relation name when no related_name is configured.
+            relation = getattr(obj, "ticketstatus_set", None)
+            latest = relation.order_by("-id").first() if relation is not None else None
+        return latest.status if latest else None
+
+
+class TicketWriteSerializer(serializers.ModelSerializer):
+    meta_created_by = CanonUserSimpleSerializer(read_only=True)
+    meta_edited_by = CanonUserSimpleSerializer(read_only=True)
+
+    class Meta:
+        model = Ticket
+        fields = "__all__"
+        read_only_fields = ("meta_created_date", "meta_created_by", "meta_edited_date", "meta_edited_by")
+
+
+class CCIPriceListSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CCIPriceList
+        fields = ["price_list_name", "mercury_code", "ln_start_date_active", "ln_end_date_active", "mercury_code_8", "record_date"]
+
+
+class ContactEmailsSerializer(serializers.ModelSerializer):
+    meta_created_by = serializers.StringRelatedField(read_only=True, label="Created By")
+
+    class Meta:
+        model = ContactEmails
+        fields = "__all__"
+        read_only_fields = ("meta_created_by", "meta_created_date")
+
+
+class AnnouncementMailLinkSerializer(serializers.ModelSerializer):
+    meta_created_by = serializers.StringRelatedField(read_only=True, label="Created By")
+
+    class Meta:
+        model = AnnouncementMailLink
+        fields = "__all__"
+        read_only_fields = ("meta_created_by", "meta_created_date")
+
+filter
+==============
+from django.db.models import OuterRef, Subquery
+from rest_framework import filters
+from pricerequest.models import TicketStatus, TicketStatusChoices
+
+
+class TicketByStatusFilter(filters.BaseFilterBackend):
+    """Filter tickets by their latest status history record."""
+
+    def filter_queryset(self, request, queryset, view):
+        requested_status = request.query_params.get("ticket_status")
+        if not requested_status:
+            return queryset
+        valid_statuses = {choice[0] for choice in TicketStatusChoices.choices} if hasattr(TicketStatusChoices, "choices") else set(TicketStatusChoices)
+        if requested_status not in valid_statuses:
+            return queryset.none()
+        latest_status = TicketStatus.objects.filter(ticket_number_id=OuterRef("pk")).order_by("-id")
+        return queryset.annotate(_latest_ticket_status=Subquery(latest_status.values("status")[:1])).filter(_latest_ticket_status=requested_status)
+
+
+workflow
+========
+from collections import defaultdict
+from pricerequest.roles import PM_USER, SALES_OPS_USER, ADMIN_ROLE
+from pricerequest.models import TicketStatusChoices
+
+TICKET_STATUS_GRAPH = {
+    TicketStatusChoices.DRAFT: [TicketStatusChoices.PENDING_SALESOPS_VALIDATION],
+    TicketStatusChoices.PENDING_SALESOPS_VALIDATION: [
+        TicketStatusChoices.PENDING_SETUP,
+        TicketStatusChoices.PENDING_DRBG_ANNOUNCEMENTS,
+        TicketStatusChoices.PENDING_ITCG_ANNOUNCEMENTS,
+        TicketStatusChoices.SALESOPS_REJECTED,
+    ],
+    TicketStatusChoices.PENDING_SETUP: [TicketStatusChoices.PENDING_PM_VALIDATION, TicketStatusChoices.PM_REJECTED],
+    TicketStatusChoices.PENDING_DRBG_ANNOUNCEMENTS: [TicketStatusChoices.PENDING_ITCG_ANNOUNCEMENTS, TicketStatusChoices.PENDING_PM_VALIDATION],
+    TicketStatusChoices.PENDING_ITCG_ANNOUNCEMENTS: [TicketStatusChoices.PENDING_PM_VALIDATION],
+    TicketStatusChoices.PENDING_PM_VALIDATION: [TicketStatusChoices.CLOSED, TicketStatusChoices.PM_REJECTED],
+    TicketStatusChoices.SALESOPS_REJECTED: [TicketStatusChoices.DRAFT],
+    TicketStatusChoices.PM_REJECTED: [TicketStatusChoices.DRAFT],
+    TicketStatusChoices.CLOSED: [],
+}
+
+TICKET_STATUS_TO_ROLE = {
+    TicketStatusChoices.DRAFT: [PM_USER, ADMIN_ROLE],
+    TicketStatusChoices.PENDING_SALESOPS_VALIDATION: [SALES_OPS_USER, ADMIN_ROLE],
+    TicketStatusChoices.PENDING_SETUP: [SALES_OPS_USER, ADMIN_ROLE],
+    TicketStatusChoices.PENDING_DRBG_ANNOUNCEMENTS: [SALES_OPS_USER, ADMIN_ROLE],
+    TicketStatusChoices.PENDING_ITCG_ANNOUNCEMENTS: [SALES_OPS_USER, ADMIN_ROLE],
+    TicketStatusChoices.PENDING_PM_VALIDATION: [PM_USER, ADMIN_ROLE],
+    TicketStatusChoices.CLOSED: [PM_USER, ADMIN_ROLE],
+    TicketStatusChoices.PM_REJECTED: [PM_USER, ADMIN_ROLE],
+    TicketStatusChoices.SALESOPS_REJECTED: [SALES_OPS_USER, ADMIN_ROLE],
+}
+
+# These are history records inserted automatically when a configured destination is reached.
+TICKET_INTERMEDIATE_STATUSES = {
+    TicketStatusChoices.PENDING_ITCG_ANNOUNCEMENTS: {
+        "condition": {"announcement_choice": "ITCG_DRBG"},
+        "statuses": [TicketStatusChoices.DRBG_ANNOUNCEMENTS_COMPLETED],
+    },
+}
+
+
+def build_role_to_status_mapping(status_to_role):
+    role_to_status = defaultdict(list)
+    for status, roles in status_to_role.items():
+        for role in roles:
+            role_to_status[role].append(status)
+    return dict(role_to_status)
+
+ROLE_TO_TICKET_STATUS = build_role_to_status_mapping(TICKET_STATUS_TO_ROLE)
+
+
+def get_available_transitions(current_status, status_graph=TICKET_STATUS_GRAPH):
+    return status_graph.get(current_status, [])
+
+
+def is_valid_transition(current_status, new_status, status_graph=TICKET_STATUS_GRAPH):
+    return new_status in get_available_transitions(current_status, status_graph)
+
+
+def is_valid_ticket_transition(current_status, new_status):
+    return is_valid_transition(current_status, new_status, TICKET_STATUS_GRAPH)
+
+
+def is_role_allowed_for_status(user_roles, target_status, status_to_role=TICKET_STATUS_TO_ROLE):
+    return bool(set(user_roles).intersection(status_to_role.get(target_status, [])))
+
+
+def is_role_allowed_for_ticket_status(user_roles, target_status):
+    return is_role_allowed_for_status(user_roles, target_status, TICKET_STATUS_TO_ROLE)
+
+
+def get_user_roles(user):
+    if not user or not user.is_authenticated:
+        return []
+    return list(user.groups.values_list("name", flat=True))
+
+
+def get_intermediate_statuses(ticket, target_status):
+    config = TICKET_INTERMEDIATE_STATUSES.get(target_status)
+    if not config:
+        return []
+    for field_name, expected_value in config.get("condition", {}).items():
+        if getattr(ticket, field_name, None) != expected_value:
+            return []
+    return config.get("statuses", [])
+
+
+
