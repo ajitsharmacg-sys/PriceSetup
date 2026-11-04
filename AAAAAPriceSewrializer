@@ -1,0 +1,158 @@
+
+from pricerequest.models import (
+    Ticket,
+    TicketLine,
+    TicketStatus,
+    CCIPriceList,
+    ContactEmails,
+    AnnouncementMailLink,
+)
+from rest_framework import serializers
+from common.serializers import CanonUserSimpleSerializer
+
+
+# --------------------------------------------------
+# Ticket Line Serializers
+# --------------------------------------------------
+
+class TicketLineReadSerializer(serializers.ModelSerializer):
+    meta_created_by = serializers.StringRelatedField(
+        many=False,
+        read_only=True,
+        label="Created By",
+    )
+    meta_edited_by = serializers.StringRelatedField(
+        many=False,
+        read_only=True,
+        label="Last Edited By",
+    )
+
+    class Meta:
+        model = TicketLine
+        fields = "__all__"
+        read_only_fields = [
+            "meta_created_date",
+            "meta_created_by",
+            "meta_edited_date",
+            "meta_edited_by",
+        ]
+
+
+class TicketLineWriteSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = TicketLine
+        fields = "__all__"
+        read_only_fields = [
+            "meta_created_date",
+            "meta_created_by",
+            "meta_edited_date",
+            "meta_edited_by",
+        ]
+
+
+# Optional compatibility serializer if other parts of the application
+# still import TicketLineSerializer directly.
+class TicketLineSerializer(TicketLineReadSerializer):
+    pass
+
+
+# --------------------------------------------------
+# Ticket Status Serializer
+# --------------------------------------------------
+
+class TicketStatusSerializer(serializers.ModelSerializer):
+    meta_created_by = serializers.StringRelatedField(
+        many=False,
+        read_only=True,
+        label="Created By",
+    )
+
+    class Meta:
+        model = TicketStatus
+        fields = "__all__"
+        read_only_fields = [
+            "meta_created_by",
+            "meta_created_date",
+        ]
+
+
+# --------------------------------------------------
+# Ticket Header Serializers
+# --------------------------------------------------
+
+class TicketSerializer(serializers.ModelSerializer):
+    meta_created_by = CanonUserSimpleSerializer(
+        many=False,
+        read_only=True,
+    )
+    meta_edited_by = CanonUserSimpleSerializer(
+        many=False,
+        read_only=True,
+    )
+
+    class Meta:
+        model = Ticket
+        fields = "__all__"
+        read_only_fields = [
+            "meta_created_date",
+            "meta_created_by",
+            "meta_edited_date",
+            "meta_edited_by",
+        ]
+
+
+# --------------------------------------------------
+# CCI Price List Serializer
+# --------------------------------------------------
+
+class CCIPriceListSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CCIPriceList
+        fields = [
+            "price_list_name",
+            "mercury_code",
+            "ln_start_date_active",
+            "ln_end_date_active",
+            "mercury_code_8",
+            "record_date",
+        ]
+
+
+# --------------------------------------------------
+# Contact Emails Serializer
+# --------------------------------------------------
+
+class ContactEmailsSerializer(serializers.ModelSerializer):
+    meta_created_by = serializers.StringRelatedField(
+        many=False,
+        read_only=True,
+        label="Created By",
+    )
+
+    class Meta:
+        model = ContactEmails
+        fields = "__all__"
+        read_only_fields = [
+            "meta_created_by",
+            "meta_created_date",
+        ]
+
+
+# --------------------------------------------------
+# Announcement Mail Link Serializer
+# --------------------------------------------------
+
+class AnnouncementMailLinkSerializer(serializers.ModelSerializer):
+    meta_created_by = serializers.StringRelatedField(
+        many=False,
+        read_only=True,
+        label="Created By",
+    )
+
+    class Meta:
+        model = AnnouncementMailLink
+        fields = "__all__"
+        read_only_fields = [
+            "meta_created_by",
+            "meta_created_date",
+        ]
