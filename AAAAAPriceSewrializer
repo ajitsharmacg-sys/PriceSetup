@@ -1,4 +1,89 @@
+workflow
+----------
+def get_user_roles(user):
+    """Return the Django group names assigned to the user."""
+    return list(
+        user.groups.values_list("name", flat=True)
+    )
 
+apiview
+-------------
+from django.db import transaction
+from django.utils import timezone
+from rest_framework.exceptions import ValidationError, PermissionDenied
+
+from pricerequest.workflow import (
+    get_user_roles,
+    is_valid_ticket_transition,
+    is_role_allowed_for_ticket_status,
+)
+
+def perform_create(self, serializer):
+    email_list = self.request.data.get("email_cc")
+
+    with transaction.atomic():
+        instance = serializer.save(
+            meta_created_by=self.request.user,
+            email_cc=email_list,
+        )
+
+        TicketStatus.objects.create(
+            ticket_number=instance,
+            status=TicketStatusChoices.DRAFT,
+            meta_created_by=self.request.user,
+        )
+
+    return instance
+
+
+def perform_update(self, serializer):
+    current_status = get_ticket_status(self.kwargs["pk"])
+    email_list = self.request.data.get("email_cc")
+
+    editable_statuses = [
+        TicketStatusChoices.DRAFT,
+        TicketStatusChoices.PM_REJECTED,
+        TicketStatusChoices.SALESOPS_REJECTED,
+    ]
+
+    if current_status.status not in editable_statuses:
+        raise PermissionDenied(
+            "You can't edit this Price Setup Request!"
+        )
+
+    return serializer.save(
+        meta_edited_by=self.request.user,
+        meta_edited_date=timezone.now(),
+        email_cc=email_list,
+    )
+
+
+def perform_destroy(self, instance):
+    current_status = get_ticket_status(instance.pk)
+
+    deletable_statuses = [
+        TicketStatusChoices.DRAFT,
+        TicketStatusChoices.PM_REJECTED,
+        TicketStatusChoices.SALESOPS_REJECTED,
+    ]
+
+    if (
+        current_status.status in deletable_statuses
+        or self.request.user.groups.filter(
+            name=ADMIN_ROLE
+        ).exists()
+    ):
+        return super().perform_destroy(instance)
+
+    raise PermissionDenied(
+        f"Only {ADMIN_ROLE} can delete this request."
+    )
+
+
+
+
+
+--------------------------------------------------------
 from pricerequest.models import (
     Ticket,
     TicketLine,
