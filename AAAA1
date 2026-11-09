@@ -1,3 +1,36 @@
+I remained focused on delivering high-quality work within committed timelines while maintaining customer satisfaction and minimizing delivery risks and escalations. I continued to enhance my technical and functional capabilities through mandatory learning, relevant training, certifications, AI/GenAI and Agile learning, while actively working on identified skill gaps. I maintained compliance with organizational requirements and contributed to team and C&CA-level initiatives. I also focused on understanding customer needs, resolving project issues effectively, creating customer value, and supporting delivery-led business opportunities. Going forward, I will continue to strengthen my technical and leadership capabilities, drive GenAI adoption, support knowledge sharing and mentoring, and contribute to consistent quality, timely delivery and overall business growth.
+
+I have demonstrated strong Overall Skills Maturity through end-to-end ownership of multiple business-critical applications and enhancements. I have worked extensively on Python/Django, Django REST Framework, Vue.js, JavaScript, SQL Server, REST APIs, database integration, and workflow-based applications.
+
+During the appraisal period, I contributed to the development and enhancement of the AIF (Advance Investment Fund), Price Setup Request, and PreDisclosure applications. My responsibilities included designing and implementing backend models, serializers, APIs, frontend screens, approval workflows, validations, status management, notifications, file/SharePoint integration, and role-based functionality.
+
+I independently analyzed and resolved complex functional and production issues, including API/data-loading issues, database and migration-related problems, Vue.js rendering and asynchronous data issues, SQL queries, workflow/status inconsistencies, and integration-related challenges. I also worked on Git branching, merging, code integration, and production support activities.
+
+I have continuously improved my technical knowledge by taking ownership of new requirements, understanding business processes, and converting them into reliable technical solutions. Overall, I have demonstrated strong technical capability, problem-solving skills, adaptability, and increasing maturity in handling complete end-to-end development responsibilities.
+
+
+
+I have demonstrated Leadership Skills Maturity primarily through technical ownership, accountability, and independent execution as an individual contributor. I have taken ownership of complete features and application modules rather than limiting my contribution to individual development tasks.
+
+For AIF, Price Setup Request, and PreDisclosure, I have handled requirements across both frontend and backend, including business logic, approval workflows, status transitions, validations, APIs, database changes, UI implementation, notifications, and production troubleshooting. I proactively investigated issues, identified root causes, evaluated possible solutions, and implemented fixes with a focus on maintaining existing business rules and production behavior.
+
+I have also supported delivery by coordinating technical changes across different components, handling Git integration and code merging, resolving production issues, and ensuring that changes are aligned with business requirements and timelines. I have demonstrated ownership during challenging technical situations and have worked toward reducing dependency by independently researching, analyzing, and implementing solutions.
+
+Going forward, I aim to further strengthen my leadership maturity by taking greater ownership of technical decisions, sharing knowledge with team members, proactively identifying improvement opportunities, and contributing more actively to technical direction and overall project delivery.
+
+
+Made a strong contribution to project delivery through end-to-end ownership of development, enhancement, and production support activities across AIF, Price Setup Request, and PreDisclosure. Worked across Python/Django, DRF, Vue.js, JavaScript, SQL Server, APIs, workflows, validations, notifications, SharePoint integration, and database changes. Independently resolved complex functional and production issues, supported Git/code integration, and delivered solutions aligned with business requirements while maintaining existing production logic. Consistently focused on quality, timely delivery, problem-solving, and continuous improvement.
+
+
+
+
+
+
+
+
+
+
+
 
 from django.core.management.base import BaseCommand
 from django.db import transaction
