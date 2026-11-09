@@ -1,0 +1,346 @@
+{% load static %}
+{% load common_tags %}
+
+{% block list_of_requests %}
+
+<section id="list_of_requests" class="section">
+    <div v-if="current_screen === 'list_of_requests'">
+
+        <div class="card">
+            <div class="card-body">
+
+                <!-- Header -->
+                <div class="d-flex justify-content-between align-items-center mb-3">
+
+                    <div>
+                        <h5 class="card-title mb-0">
+                            Price Setup Requests
+                        </h5>
+                    </div>
+
+                    <div class="d-flex gap-2">
+
+                        <!-- Filter -->
+                        <div class="dropdown">
+                            <button
+                                type="button"
+                                class="btn btn-sm btn-secondary dropdown-toggle"
+                                @click="show_filter = !show_filter">
+                                Filter
+                            </button>
+
+                            <div
+                                class="dropdown-menu"
+                                :class="{ show: show_filter }">
+
+                                <button
+                                    class="dropdown-item"
+                                    @click="apply_status_filter('')">
+                                    All
+                                </button>
+
+                                <button
+                                    v-for="status in status_choices"
+                                    :key="status"
+                                    class="dropdown-item"
+                                    @click="apply_status_filter(status)">
+                                    [[ format_label(status) ]]
+                                </button>
+
+                            </div>
+                        </div>
+
+                        <!-- Refresh -->
+                        <button
+                            class="btn btn-sm btn-secondary"
+                            @click="refresh_table">
+
+                            <i
+                                v-if="!loading"
+                                class="bi bi-arrow-clockwise">
+                            </i>
+
+                            <span
+                                v-else
+                                class="spinner-border spinner-border-sm">
+                            </span>
+
+                        </button>
+
+                        <!-- Add -->
+                        {% if request.user|has_group:'Price Request User-PM' or request.user|has_group:'Price Request Admin' %}
+
+                        <button
+                            class="btn btn-sm btn-primary"
+                            @click="navigate('price_setup_request', 'add')">
+
+                            <i class="bi bi-plus"></i>
+                            New Request
+
+                        </button>
+
+                        {% endif %}
+
+                    </div>
+
+                </div>
+
+                <!-- Search -->
+                <div class="row mb-3">
+
+                    <div class="col-md-4 ms-auto">
+
+                        <div class="input-group">
+
+                            <input
+                                type="search"
+                                class="form-control"
+                                v-model="search_text"
+                                placeholder="Search Price Request">
+
+                            <button
+                                class="btn btn-secondary"
+                                @click="search_ticket">
+
+                                <i class="bi bi-search"></i>
+
+                            </button>
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+                <!-- New Architecture Table -->
+
+                <django-paged-table
+                    ref="ticketTable"
+                    :api_endpoint="ticket_url"
+                    :columns="ticket_columns"
+                    :fixed_query_filter="ticket_filter"
+                    @on-item-update="select_ticket">
+
+                    <template #actions="actionProps">
+
+                        <div class="btn-group">
+
+                            <!-- View -->
+                            <button
+                                type="button"
+                                class="btn btn-sm btn-primary"
+                                title="View"
+                                @click="select_ticket_and_navigate(
+                                    actionProps,
+                                    'ticket_info'
+                                )">
+
+                                <i class="bi bi-eye"></i>
+
+                            </button>
+
+                            <!-- Edit -->
+                            {% if request.user|has_group:'Price Request User-PM' or request.user|has_group:'Price Request Admin' %}
+
+                            <button
+                                v-if="can_edit(actionProps)"
+                                type="button"
+                                class="btn btn-sm btn-secondary"
+                                title="Edit"
+                                @click="select_ticket_and_navigate(
+                                    actionProps,
+                                    'price_setup_request',
+                                    'edit'
+                                )">
+
+                                <i class="bi bi-pencil"></i>
+
+                            </button>
+
+                            {% endif %}
+
+                            <!-- Delete -->
+                            {% if request.user|has_group:'Price Request Admin' %}
+
+                            <button
+                                v-if="can_delete(actionProps)"
+                                type="button"
+                                class="btn btn-sm btn-danger"
+                                title="Delete"
+                                @click="delete_ticket(actionProps)">
+
+                                <i class="bi bi-trash"></i>
+
+                            </button>
+
+                            {% endif %}
+
+                        </div>
+
+                    </template>
+
+                </django-paged-table>
+
+            </div>
+        </div>
+
+    </div>
+</section>
+
+{% endblock %}
+
+const price_request = Vue.createApp({
+    delimiters: ['[[', ']]'],
+
+    data() {
+        return {
+            current_screen: 'list_of_requests',
+
+            nav_context: {
+                previous: 'list_of_requests'
+            },
+
+            selected_ticket: null,
+
+            loading: false,
+
+            show_filter: false,
+
+            search_text: '',
+
+            ticket_filter: '',
+
+            ticket_url: api_endpoints.ticket,
+
+            status_choices: [
+                'DRAFT',
+                'PENDING_SALESOPS_VALIDATION',
+                'PENDING_SETUP',
+                'PENDING_ITCG_ANNOUNCEMENTS',
+                'PENDING_PM_VALIDATION',
+                'CLOSED',
+                'PM_REJECTED',
+                'SALESOPS_REJECTED'
+            ],
+
+            ticket_columns: [
+                {
+                    key: 'ticket_number',
+                    label: 'Ticket Number'
+                },
+                {
+                    key: 'meta_created_date',
+                    label: 'Created'
+                },
+                {
+                    key: 'subject',
+                    label: 'Subject'
+                },
+                {
+                    key: 'ticket_status',
+                    label: 'Status'
+                },
+                {
+                    key: 'created_by',
+                    label: 'Requester'
+                }
+            ]
+        }
+    },
+
+    methods: {
+
+        navigate(screen, context = null) {
+
+            this.current_screen = screen;
+
+            this.nav_context = {
+                previous: 'list_of_requests',
+                context: context
+            };
+
+        },
+
+        select_ticket(ticket) {
+
+            this.selected_ticket = ticket;
+
+        },
+
+        apply_status_filter(status) {
+
+            this.ticket_filter =
+                status
+                    ? `&ticket_status=${status}`
+                    : '';
+
+            this.show_filter = false;
+
+            this.$refs.ticketTable?.refresh();
+
+        },
+
+        refresh_table() {
+
+            this.$refs.ticketTable?.refresh();
+
+        },
+
+        search_ticket() {
+
+            this.ticket_filter =
+                this.search_text
+                    ? `&search=${encodeURIComponent(this.search_text)}`
+                    : '';
+
+            this.$refs.ticketTable?.refresh();
+
+        },
+
+        can_edit(ticket) {
+
+            return [
+                'DRAFT',
+                'PM_REJECTED',
+                'SALESOPS_REJECTED'
+            ].includes(this.get_ticket_status(ticket));
+
+        },
+
+        can_delete(ticket) {
+
+            return (
+                this.get_ticket_status(ticket) === 'DRAFT'
+            );
+
+        },
+
+        get_ticket_status(ticket) {
+
+            if (!ticket?.ticket_status?.length) {
+                return '';
+            }
+
+            return ticket.ticket_status[
+                ticket.ticket_status.length - 1
+            ]?.status || '';
+
+        },
+
+        format_label(value) {
+
+            if (!value) {
+                return '';
+            }
+
+            return value
+                .replaceAll('_', ' ')
+                .toLowerCase()
+                .replace(/\b\w/g, c => c.toUpperCase());
+
+        }
+
+    }
+});
+
+price_request.mount("#price_request");
