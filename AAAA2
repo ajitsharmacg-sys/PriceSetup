@@ -344,3 +344,260 @@ const price_request = Vue.createApp({
 });
 
 price_request.mount("#price_request");
+
+
+===================
+
+{% load static %}
+{% load common_tags %}
+
+{% block ticket_info %}
+
+<section
+    id="ticket_info"
+    class="section">
+
+    <div v-if="current_screen === 'ticket_info'">
+
+        <!-- Back -->
+        <div class="fs-4 mb-3">
+
+            <a href="#">
+                <i
+                    class="bi bi-arrow-left-circle-fill"
+                    @click="navigate('list_of_requests')">
+                </i>
+            </a>
+
+        </div>
+
+        <!-- Breadcrumb -->
+        <nav aria-label="breadcrumb">
+
+            <ol class="breadcrumb">
+
+                <li class="breadcrumb-item">
+
+                    <a
+                        href="#"
+                        @click="navigate('list_of_requests')">
+
+                        Requests
+
+                    </a>
+
+                </li>
+
+                <li class="breadcrumb-item active">
+
+                    [[ selected_ticket?.ticket_number ]]
+
+                </li>
+
+            </ol>
+
+        </nav>
+
+        <div class="row">
+
+            <!-- LEFT -->
+            <div class="col-12 col-lg-6">
+
+                <vertical-table
+                    :api_endpoint="ticket_detail_url"
+                    :columns="ticket_header_columns"
+                    v-model:data_refresh_trigger="update_triggered"
+                    :custom_format="custom_format"
+                    @on-item-update="(item) => {
+                        selected_ticket = item;
+                    }">
+
+                    <template #actions="actionProps">
+
+                        <tr>
+
+                            <th>Actions</th>
+
+                            <td>
+
+                                <div class="btn-group">
+
+                                    <!-- SalesOps validation -->
+                                    <button
+                                        v-if="can_salesops_validate(actionProps)"
+                                        type="button"
+                                        class="btn btn-sm btn-primary"
+                                        @click="open_salesops_validation()">
+
+                                        Validate
+
+                                    </button>
+
+                                    <!-- Setup -->
+                                    <button
+                                        v-if="can_setup(actionProps)"
+                                        type="button"
+                                        class="btn btn-sm btn-warning"
+                                        @click="open_setup()">
+
+                                        Update PM
+
+                                    </button>
+
+                                    <!-- PM validation -->
+                                    <button
+                                        v-if="can_pm_validate(actionProps)"
+                                        type="button"
+                                        class="btn btn-sm btn-primary"
+                                        @click="open_pm_validation()">
+
+                                        Validate
+
+                                    </button>
+
+                                </div>
+
+                            </td>
+
+                        </tr>
+
+                    </template>
+
+                </vertical-table>
+
+            </div>
+
+            <!-- RIGHT -->
+            <div class="col-12 col-lg-6">
+
+                <status-history
+                    :api_endpoint="ticket_status_history_url"
+                    v-model:data_refresh_trigger="update_triggered"
+                    :custom_format="custom_format?.ticket_status">
+                </status-history>
+
+            </div>
+
+        </div>
+
+        <!-- LINE DETAILS -->
+
+        <div class="mt-4">
+
+            <h5 class="card-title">
+                Price Setup Line Details
+            </h5>
+
+            <django-paged-table
+                ref="lineTable"
+                :api_endpoint="ticket_line_url"
+                :columns="ticket_line_columns"
+                :fixed_query_filter="line_filter">
+
+            </django-paged-table>
+
+        </div>
+
+    </div>
+
+</section>
+
+{% endblock %}
+
+async update_ticket_status(status, comment, files = []) {
+
+    this.loading = true;
+
+    try {
+
+        const formData = new FormData();
+
+        formData.append(
+            "ticket_number",
+            this.selected_ticket.ticket_number
+        );
+
+        formData.append(
+            "comment",
+            comment || ""
+        );
+
+        formData.append(
+            "status",
+            status
+        );
+
+        for (const file of files) {
+            formData.append("Upload_files", file);
+        }
+
+        const response = await postFormData(
+            api_endpoints.ticketstatus,
+            formData
+        );
+
+        if (!response.ok) {
+            throw response;
+        }
+
+        await response.json();
+
+        this.update_triggered++;
+
+    }
+    catch (error) {
+
+        this.display_error(
+            error,
+            "Unable to update the Price Setup Request."
+        );
+
+    }
+    finally {
+
+        this.loading = false;
+
+    }
+
+}
+
+async reject_salesops() {
+
+    await this.update_ticket_status(
+        "SALESOPS_REJECTED",
+        this.confirm_comment,
+        this.selected_files
+    );
+
+}
+
+async send_to_pm() {
+
+    await this.update_ticket_status(
+        "PENDING_PM_VALIDATION",
+        this.confirm_comment,
+        this.selected_files
+    );
+
+}
+
+async close_ticket() {
+
+    await this.update_ticket_status(
+        "CLOSED",
+        this.confirm_comment,
+        this.selected_files
+    );
+
+}
+
+async approve_salesops() {
+
+    await this.update_ticket_status(
+        "PENDING_SETUP",
+        this.confirm_comment,
+        this.selected_files
+    );
+
+}
+
