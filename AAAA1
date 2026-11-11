@@ -1,3 +1,31 @@
+canActOnLine(line) {
+    const current_status =
+        line?.predisclosure_line_status;
+
+    // Do not allow already approved/rejected lines
+    if (
+        current_status === "APPROVED" ||
+        current_status === "REJECTED"
+    ) {
+        return false;
+    }
+
+    // Check whether this user has an action for this line
+    const choices = this.get_line_status_choices(line);
+
+    if (choices.length === 0) {
+        this.show_notification(
+            "You are not authorized to perform an action on this account."
+        );
+        return false;
+    }
+
+    return true;
+},
+
+
+
+
 isLineEligibleForAction(line) {
     const current_status =
         line?.predisclosure_line_status;
