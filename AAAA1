@@ -1,3 +1,48 @@
+get_line_status_choices(line) {
+    const current_status =
+        line.predisclosure_line_status;
+
+    // Do not show actions for final statuses
+    if (
+        !current_status ||
+        current_status === "APPROVED" ||
+        current_status === "REJECTED"
+    ) {
+        return [];
+    }
+
+    // Keep existing Admin behavior
+    if (this.is_admin()) {
+        return ["APPROVED", "REJECTED"];
+    }
+
+    // Existing workflow-based approver logic
+    const required_approver_type =
+        this.workflow?.STATUS_TO_APPROVER_TYPE?.[current_status];
+
+    if (!required_approver_type) {
+        return [];
+    }
+
+    const is_current_user_approver =
+        this.USER_APPROVER_TYPES.includes(
+            required_approver_type
+        );
+
+    if (!is_current_user_approver) {
+        return [];
+    }
+
+    return [
+        "APPROVED",
+        "REJECTED",
+    ];
+},
+
+
+
+
+
 Please review my appraisal form and provide your feedback and assessment. I have included my key contributions, project deliverables, technical development, and overall skills and leadership maturity during the appraisal period for your consideration.
 
 I remained focused on delivering high-quality work within committed timelines while maintaining customer satisfaction and minimizing delivery risks and escalations. I continued to enhance my technical and functional capabilities through mandatory learning, relevant training, certifications, AI/GenAI and Agile learning, while actively working on identified skill gaps. I maintained compliance with organizational requirements and contributed to team and C&CA-level initiatives. I also focused on understanding customer needs, resolving project issues effectively, creating customer value, and supporting delivery-led business opportunities. Going forward, I will continue to strengthen my technical and leadership capabilities, drive GenAI adoption, support knowledge sharing and mentoring, and contribute to consistent quality, timely delivery and overall business growth.
