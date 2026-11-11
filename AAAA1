@@ -1,3 +1,53 @@
+isLineEligibleForAction(line) {
+    const current_status =
+        line?.predisclosure_line_status;
+
+    return (
+        current_status &&
+        current_status !== "APPROVED" &&
+        current_status !== "REJECTED"
+    );
+},
+
+canActOnLine(line) {
+    if (!this.isLineEligibleForAction(line)) {
+        return false;
+    }
+
+    // Keep your existing Admin behavior
+    if (this.is_admin()) {
+        return true;
+    }
+
+    const required_approver_type =
+        this.workflow?.STATUS_TO_APPROVER_TYPE?.[
+            line.predisclosure_line_status
+        ];
+
+    if (!required_approver_type) {
+        this.show_notification(
+            "You are not authorized to perform this action."
+        );
+        return false;
+    }
+
+    const is_current_user_approver =
+        this.USER_APPROVER_TYPES.includes(
+            required_approver_type
+        );
+
+    if (!is_current_user_approver) {
+        this.show_notification(
+            "You are not authorized to perform this action."
+        );
+        return false;
+    }
+
+    return true;
+},
+
+
+
 get_line_status_choices(line) {
     const current_status =
         line.predisclosure_line_status;
