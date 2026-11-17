@@ -1,3 +1,65 @@
+<div class="d-flex justify-content-between align-items-center mb-3">
+
+    <div class="d-flex align-items-center">
+        <a href="#"
+           class="me-3 text-decoration-none"
+           @click="navigate(nav_context.previous)">
+            <i class="bi bi-arrow-left-circle-fill fs-4"></i>
+        </a>
+
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb mb-0">
+                <li class="breadcrumb-item">
+                    <a href="#"
+                       @click="navigate('list_of_requests')">
+                        Requests
+                    </a>
+                </li>
+
+                <li class="breadcrumb-item active" aria-current="page">
+                    [[ selected_ticket?.ticket_number ]]
+                </li>
+            </ol>
+        </nav>
+    </div>
+
+    <div
+        class="ms-auto d-flex align-items-center gap-2"
+        v-if="!['DRAFT'].includes(ticket_status) &&
+              (this.user_role.includes('Price Request User-SalesOps') ||
+               this.user_role.includes(this.admin_role))"
+    >
+        <span class="text-muted small fw-medium">
+            Download Web ADI Template
+        </span>
+
+        <button
+            type="button"
+            class="btn btn-sm btn-outline-primary d-flex align-items-center gap-2"
+            @click="export_to_excel(selected_ticket)"
+            :disabled="isLoading"
+        >
+            <template v-if="!isLoading">
+                <i class="bi bi-download"></i>
+            </template>
+
+            <template v-else>
+                <span class="spinner-border spinner-border-sm"
+                      role="status"></span>
+                <span class="small">[[ downloadStep ]]</span>
+            </template>
+        </button>
+    </div>
+
+</div>
+
+
+
+
+
+
+
+
 <div class="d-flex justify-content-between align-items-top flex-wrap">
 
     <div class="p-1 flex-grow-1">
