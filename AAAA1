@@ -1,3 +1,49 @@
+computed: {
+    get_url() {
+        return (
+            this.api_endpoints.tickets +
+            this.selected_ticket?.ticket_number +
+            "/"
+        );
+    },
+
+    price_request_line_url() {
+        return (
+            this.api_endpoints.ticketlines +
+            "?ticket_number=" +
+            this.selected_ticket?.ticket_number
+        );
+    },
+
+    price_request_status_history_url() {
+        return (
+            this.api_endpoints.ticketstatus +
+            "?ticket_number=" +
+            this.selected_ticket?.ticket_number
+        );
+    },
+
+    custom_format() {
+        return {
+            "ticket_status": {
+                DRAFT: "text-bg-secondary",
+                PENDING_SALESOPS_VALIDATION: "text-bg-warning",
+                CLOSED: "text-bg-success",
+                PM_REJECTED: "text-bg-danger",
+                SALESOPS_REJECTED: "text-bg-danger",
+                PENDING_SETUP: "text-bg-warning",
+                PENDING_ITCG_ANNOUNCEMENTS: "text-bg-warning",
+                PENDING_DRBG_ANNOUNCEMENTS: "text-bg-warning",
+                DRBG_ANNOUNCEMENTS_COMPLETED: "text-bg-warning",
+                ITCG_ANNOUNCEMENTS_COMPLETED: "text-bg-warning",
+                PENDING_PM_VALIDATION: "text-bg-warning",
+            },
+        };
+    },
+},
+
+
+
 <div class="fs-4 mb-3">
     <a href="#">
         <i class="bi bi-arrow-left-circle-fill"
