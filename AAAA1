@@ -1,31 +1,30 @@
-<div class="d-flex justify-content-between align-items-center mb-3">
-
-    <div class="d-flex align-items-center">
-        <a href="#"
-           class="me-3 text-decoration-none"
+<div class="fs-4 mb-3">
+    <a href="#">
+        <i class="bi bi-arrow-left-circle-fill"
            @click="navigate(nav_context.previous)">
-            <i class="bi bi-arrow-left-circle-fill fs-4"></i>
-        </a>
+        </i>
+    </a>
+</div>
 
-        <nav aria-label="breadcrumb">
-            <ol class="breadcrumb mb-0">
-                <li class="breadcrumb-item">
-                    <a href="#"
-                       @click="navigate('list_of_requests')">
-                        Requests
-                    </a>
-                </li>
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb mb-0">
+            <li class="breadcrumb-item">
+                <a href="#"
+                   @click="navigate('list_of_requests')">
+                    Requests
+                </a>
+            </li>
 
-                <li class="breadcrumb-item active" aria-current="page">
-                    [[ selected_ticket?.ticket_number ]]
-                </li>
-            </ol>
-        </nav>
-    </div>
+            <li class="breadcrumb-item active" aria-current="page">
+                [[ selected_ticket?.ticket_number ]]
+            </li>
+        </ol>
+    </nav>
 
     <div
         class="ms-auto d-flex align-items-center gap-2"
-        v-if="!['DRAFT'].includes(ticket_status) &&
+        v-if="!['DRAFT'].includes(get_ticket_status(selected_ticket)) &&
               (this.user_role.includes('Price Request User-SalesOps') ||
                this.user_role.includes(this.admin_role))"
     >
@@ -50,10 +49,7 @@
             </template>
         </button>
     </div>
-
 </div>
-
-
 
 
 
