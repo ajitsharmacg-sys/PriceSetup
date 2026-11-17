@@ -1,3 +1,69 @@
+<div class="d-flex justify-content-between align-items-top flex-wrap">
+
+    <div class="p-1 flex-grow-1">
+        <vertical-table
+            :api_endpoint="get_url"
+            :columns="header_columns"
+            v-model:data_refresh_trigger="update_triggered"
+            :custom_format="custom_format"
+            @on-item-update="
+                (item)=>{
+                    selected_ticket=item;
+                }">
+            
+            <template #actions="actionProps">
+                <tr>
+                    <th>
+                        Actions
+                    </th>
+                    <td>
+                        <div class="btn-group">
+                            <button
+                                v-if="actionProps?.ticket_status == 'DRAFT'"
+                                class="btn btn-sm btn-success ms-2"
+                                @click="submit_predisclosure()">
+                                Submit
+                            </button>
+
+                            <button
+                                v-if="['DRAFT'].includes(actionProps?.ticket_status)"
+                                class="btn btn-sm btn-primary"
+                                @click="navigate('predisclosure_app','edit')">
+                                Edit
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+            </template>
+
+        </vertical-table>
+    </div>
+
+    <div class="p-1 flex-grow-1">
+        <div class="container-fluid">
+            <status-history
+                :api_endpoint="price_request_status_history_url"
+                v-model:data_refresh_trigger="update_triggered"
+                :custom_format="custom_format?.ticket_status">
+            </status-history>
+        </div>
+    </div>
+
+    <div class="p-1 flex-grow-1">
+        <django-paged-table
+            ref="lineTable"
+            :api_endpoint="price_request_line_url"
+            :columns="line_columns"
+            @export-excel="(items) => { export_lines_to_excel(items); }"
+            title="Price Setup Request Lines"
+            :custom_format="custom_format">
+        </django-paged-table>
+    </div>
+
+</div>
+
+
+
 canActOnLine(line) {
     const current_status =
         line?.predisclosure_line_status;
