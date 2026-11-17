@@ -1,186 +1,127 @@
-<!-- Generic Ticket Action Modal -->
-<section class="modal fade" id="ticket_action_modal" tabindex="-1">
-    <div class="modal-dialog modal-dialog-centered modal-lg">
-        <div class="modal-content">
-
-            <div class="modal-header">
-                <h5 class="modal-title">
-                    [[ ticket_action.title ]]
-
-                    <span
-                        class="spinner-border text-primary ms-2"
-                        :style="ticket_action.loading
-                            ? 'display: inline-block;'
-                            : 'display: none;'">
-                    </span>
-                </h5>
-
-                <button
-                    type="button"
-                    class="btn-close"
-                    @click="close_ticket_action_modal">
-                </button>
-            </div>
-
-            <div class="modal-body">
-
-                <div class="mb-3">
-                    <p>
-                        Ticket Number:
-                        <strong>[[ selected_ticket?.ticket_number ]]</strong>
-                    </p>
-                </div>
-
-                <div class="row mb-3">
-
-                    <label
-                        class="col-sm-2 col-form-label"
-                        for="ticket_action_comment">
-                        Comment
-                    </label>
-
-                    <div class="col-sm-10">
-
-                        <textarea
-                            id="ticket_action_comment"
-                            class="form-control"
-                            rows="5"
-                            v-model="ticket_action.comment">
-                        </textarea>
-
-                    </div>
-
-                </div>
-
-                <div class="row mb-3">
-
-                    <label
-                        class="col-sm-2 col-form-label"
-                        for="ticket_action_file">
-                        File Upload
-                    </label>
-
-                    <div class="col-sm-10">
-
-                        <input
-                            type="file"
-                            multiple
-                            class="form-control"
-                            accept="image/*,application/pdf,.xlsx,.xls"
-                            id="ticket_action_file">
-
-                        <small class="form-text text-muted">
-                            File will be uploaded to
-                            <a
-                                :href="selected_ticket?.link"
-                                target="_blank">
-                                SharePoint
-                            </a>
-                        </small>
-
-                    </div>
-
-                </div>
-
-                <div class="text-center">
-
-                    <button
-                        type="button"
-                        class="btn btn-primary me-2"
-                        :disabled="ticket_action.loading"
-                        @click="submit_ticket_action">
-
-                        [[ ticket_action.submit_label ]]
-
-                    </button>
-
-                    <button
-                        v-if="ticket_action.show_reject"
-                        type="button"
-                        class="btn btn-danger"
-                        :disabled="ticket_action.loading"
-                        @click="submit_ticket_rejection">
-
-                        Reject
-
-                    </button>
-
-                </div>
-
-            </div>
-        </div>
-    </div>
-</section>
-
+workflow: {},
 
 ticket_action: {
-    title: "",
-    submit_label: "",
-    status: "",
-    navigation: "",
-    context: "",
+    label: "",
+    target_status: "",
     comment: "",
-    loading: false,
-    show_reject: false,
+    files: [],
+},
+
+show_ticket_action_modal: false,
+ticket_action_loading: false,
+
+
+------------------
+
+get_ticket_action(status) {
+    const actions = {
+        PENDING_SALESOPS_VALIDATION: {
+            label: "Validate",
+            class: "btn btn-primary btn-sm",
+            type: "GENERIC",
+        },
+
+        PENDING_PM_VALIDATION: {
+            label: "Validate",
+            class: "btn btn-primary btn-sm",
+            type: "GENERIC",
+        },
+
+        PENDING_ITCG_ANNOUNCEMENTS: {
+            label: "Update DR",
+            class: "btn btn-warning btn-sm",
+            type: "UPDATE_DR",
+        },
+
+        PENDING_DRBG_ANNOUNCEMENTS: {
+            label: "Update ER",
+            class: "btn btn-warning btn-sm",
+            type: "UPDATE_ER",
+        },
+
+        CLOSED: {
+            label: "Close",
+            class: "btn btn-success btn-sm",
+            type: "GENERIC",
+        },
+
+        PM_REJECTED: {
+            label: "Reject",
+            class: "btn btn-danger btn-sm",
+            type: "GENERIC",
+        },
+
+        SALESOPS_REJECTED: {
+            label: "Reject",
+            class: "btn btn-danger btn-sm",
+            type: "GENERIC",
+        },
+    };
+
+    return actions[status] || null;
 },
 
 
-<div class="text-center">
-    <div class="d-flex justify-content-center flex-wrap gap-2">
+----------------------
 
-        <button
-            v-for="action in get_ticket_level_actions(selected_ticket)"
-            :key="action.status"
-            type="button"
-            :class="action.button_class"
-            @click="open_ticket_action_modal(action)">
-            [[ action.label ]]
-        </button>
+get_pending_setup_action(ticket) {
 
-        <button
-            v-if="get_ticket_status(selected_ticket) === 'DRAFT'"
-            type="button"
-            class="btn btn-primary btn-sm"
-            @click="navigate('price_setup_request', 'edit')">
-            Edit
-        </button>
+    if (
+        ticket?.is_annoucement &&
+        ticket?.announcement_choice === "ITCG"
+    ) {
+        return {
+            label: "Update DR",
+            class: "btn btn-warning btn-sm",
+            type: "UPDATE_DR",
+        };
+    }
 
-    </div>
-</div>
+    if (
+        ticket?.is_annoucement &&
+        ticket?.announcement_choice === "ITCG_DRBG"
+    ) {
+        return {
+            label: "Update ER",
+            class: "btn btn-warning btn-sm",
+            type: "UPDATE_ER",
+        };
+    }
 
+    if (
+        ticket?.is_annoucement &&
+        ticket?.announcement_choice === "DRBG"
+    ) {
+        return {
+            label: "Update ER",
+            class: "btn btn-warning btn-sm",
+            type: "UPDATE_ER",
+        };
+    }
+
+    if (
+        !ticket?.is_annoucement &&
+        ticket?.announcement_choice === "NO_ANNOUNCEMENT"
+    ) {
+        return {
+            label: "Update PM",
+            class: "btn btn-warning btn-sm",
+            type: "GENERIC",
+        };
+    }
+
+    return null;
+},
+
+-----------------------
 
 get_ticket_level_actions(ticket) {
 
-    const current_status = this.get_ticket_status(ticket);
-
-    if (!current_status || !this.workflow?.TICKET_STATUS_GRAPH) {
-        return [];
-    }
-
-    const next_statuses =
-        this.workflow.TICKET_STATUS_GRAPH[current_status] || [];
-
-    const user_roles = Array.isArray(this.user_role)
-        ? this.user_role
-        : [this.user_role];
-
+    const available_statuses = this.get_ticket_status_choices();
     const actions = [];
 
-    next_statuses.forEach(status => {
+    available_statuses.forEach(status => {
 
-        const allowed_roles =
-            this.workflow.TICKET_STATUS_TO_ROLE?.[status] || [];
-
-        const role_allowed =
-            allowed_roles.includes(this.workflow.ADMIN_ROLE) ||
-            allowed_roles.some(role => user_roles.includes(role));
-
-        if (!role_allowed) {
-            return;
-        }
-
-        // PENDING_SETUP has different actions
-        // depending on announcement configuration.
         if (status === "PENDING_SETUP") {
 
             const action = this.get_pending_setup_action(ticket);
@@ -188,7 +129,7 @@ get_ticket_level_actions(ticket) {
             if (action) {
                 actions.push({
                     ...action,
-                    status: status,
+                    target_status: status,
                 });
             }
 
@@ -200,7 +141,7 @@ get_ticket_level_actions(ticket) {
         if (action) {
             actions.push({
                 ...action,
-                status: status,
+                target_status: status,
             });
         }
     });
@@ -208,317 +149,437 @@ get_ticket_level_actions(ticket) {
     return actions;
 },
 
-get_ticket_action(status) {
 
-    const actions = {
+--------------
 
-        PENDING_SALESOPS_VALIDATION: {
-            label: "Validate",
-            title: "Validate Price Setup Request",
-            submit_label: "Approve",
-            button_class: "btn btn-primary btn-sm",
-            show_reject: true,
-        },
+open_ticket_level_action(action) {
 
-        PENDING_PM_VALIDATION: {
-            label: "Validate",
-            title: "Validate Price Setup Request",
-            submit_label: "Approve",
-            button_class: "btn btn-primary btn-sm",
-            show_reject: true,
-        },
+    if (!action) {
+        return;
+    }
 
-        PENDING_ITCG_ANNOUNCEMENTS: {
-            label: "Update DR",
-            title: "Update DR Announcement",
-            submit_label: "Submit",
-            button_class: "btn btn-warning btn-sm",
-            show_reject: false,
-        },
+    // DR has its own dedicated modal
+    if (action.type === "UPDATE_DR") {
+        this.show_modal("update_itcg");
+        return;
+    }
 
-        PENDING_DRBG_ANNOUNCEMENTS: {
-            label: "Update ER",
-            title: "Update ER Announcement",
-            submit_label: "Submit",
-            button_class: "btn btn-warning btn-sm",
-            show_reject: false,
-        },
+    // ER has its own dedicated modal
+    if (action.type === "UPDATE_ER") {
+        this.show_modal("update_drbg");
+        return;
+    }
 
-        CLOSED: {
-            label: "Close",
-            title: "Close Price Setup Request",
-            submit_label: "Confirm",
-            button_class: "btn btn-success btn-sm",
-            show_reject: false,
-        },
-
-        SALESOPS_REJECTED: {
-            label: "Reject",
-            title: "Reject Price Setup Request",
-            submit_label: "Reject",
-            button_class: "btn btn-danger btn-sm",
-            show_reject: false,
-        },
-
-        PM_REJECTED: {
-            label: "Reject",
-            title: "Reject Price Setup Request",
-            submit_label: "Reject",
-            button_class: "btn btn-danger btn-sm",
-            show_reject: false,
-        },
-
+    // Everything else uses the generic modal
+    this.ticket_action = {
+        label: action.label,
+        target_status: action.target_status,
+        comment: "",
+        files: [],
     };
 
-    return actions[status] || null;
-},
-
-get_pending_setup_action(ticket) {
-
-    if (
-        ticket?.is_annoucement &&
-        ticket?.announcement_choice === "ITCG"
-    ) {
-        return {
-            label: "Update DR",
-            title: "Update DR",
-            submit_label: "Submit",
-            button_class: "btn btn-warning btn-sm",
-            show_reject: false,
-        };
-    }
-
-    if (
-        ticket?.is_annoucement &&
-        ticket?.announcement_choice === "ITCG_DRBG"
-    ) {
-        return {
-            label: "Update ER",
-            title: "Update ER",
-            submit_label: "Submit",
-            button_class: "btn btn-warning btn-sm",
-            show_reject: false,
-        };
-    }
-
-    if (
-        ticket?.is_annoucement &&
-        ticket?.announcement_choice === "DRBG"
-    ) {
-        return {
-            label: "Update ER",
-            title: "Update ER",
-            submit_label: "Submit",
-            button_class: "btn btn-warning btn-sm",
-            show_reject: false,
-        };
-    }
-
-    if (
-        !ticket?.is_annoucement &&
-        ticket?.announcement_choice === "NO_ANNOUNCEMENT"
-    ) {
-        return {
-            label: "Update PM",
-            title: "Send PM for Validation",
-            submit_label: "Confirm",
-            button_class: "btn btn-warning btn-sm",
-            show_reject: false,
-        };
-    }
-
-    return null;
+    this.show_ticket_action_modal = true;
 },
 
 
-open_ticket_action_modal(action) {
+-------------------
+
+close_ticket_action_modal() {
+
+    if (this.ticket_action_loading) {
+        return;
+    }
+
+    this.show_ticket_action_modal = false;
 
     this.ticket_action = {
-        title: action.title,
-        submit_label: action.submit_label,
-        status: action.status,
-        navigation: action.navigation || "",
-        context: action.context || "",
+        label: "",
+        target_status: "",
         comment: "",
-        loading: false,
-        show_reject: action.show_reject || false,
+        files: [],
     };
 
-    const modal_element =
-        document.getElementById("ticket_action_modal");
+    const fileInput = document.getElementById("ticket_action_files");
 
-    const modal = bootstrap.Modal.getOrCreateInstance(
-        modal_element
-    );
-
-    modal.show();
+    if (fileInput) {
+        fileInput.value = "";
+    }
 },
+
+-------------------
+
+handle_ticket_action_files(event) {
+
+    this.ticket_action.files = Array.from(
+        event.target.files || []
+    );
+},
+
+---------------
 
 async submit_ticket_action() {
 
-    await this.submit_ticket_status(
-        this.ticket_action.status
-    );
-},
-
-async submit_ticket_rejection() {
-
-    let rejection_status = null;
-
-    const current_status =
-        this.get_ticket_status(this.selected_ticket);
-
-    if (current_status === "PENDING_SALESOPS_VALIDATION") {
-        rejection_status = "SALESOPS_REJECTED";
-    }
-
-    if (current_status === "PENDING_PM_VALIDATION") {
-        rejection_status = "PM_REJECTED";
-    }
-
-    if (!rejection_status) {
-        this.display_error(
-            null,
-            "Rejection is not available for the current ticket status."
-        );
+    if (!this.selected_ticket?.ticket_number) {
+        this.show_notification("Ticket number is missing.");
         return;
     }
 
-    await this.submit_ticket_status(rejection_status);
-},
-
-
-async submit_ticket_status(status) {
-
-    this.ticket_action.loading = true;
-
-    const formData = new FormData();
-
-    formData.append(
-        "ticket_number",
-        this.selected_ticket.ticket_number
-    );
-
-    formData.append(
-        "comment",
-        this.ticket_action.comment || ""
-    );
-
-    formData.append(
-        "status",
-        status
-    );
-
-    const file_field =
-        document.getElementById("ticket_action_file");
-
-    if (file_field?.files) {
-
-        for (let i = 0; i < file_field.files.length; i++) {
-            formData.append(
-                "Upload_files",
-                file_field.files[i]
-            );
-        }
+    if (!this.ticket_action?.target_status) {
+        this.show_notification("Target status is missing.");
+        return;
     }
+
+    this.ticket_action_loading = true;
 
     try {
 
-        await this.upload_ticket_files();
+        const formData = new FormData();
 
-        const response =
-            await postFormData(
-                this.api_endpoints.ticketstatus,
-                formData
-            );
-
-        if (!response.ok) {
-            throw response;
-        }
-
-        await response.json();
-
-        this.close_ticket_action_modal();
-
-        this.reset_ticket_action();
-
-        await this.reload_ticket_status(
+        formData.append(
+            "ticket_number",
             this.selected_ticket.ticket_number
         );
 
-        this.dialog
-            .reset_to_default()
-            .set_title("Success")
-            .set_message(
-                this.get_ticket_success_message(status)
-            )
-            .set_true_action("Close")
-            .show();
-
-    } catch (error) {
-
-        this.display_error(
-            error,
-            "The Price Setup Request action could not be completed. Please try again or contact support."
+        formData.append(
+            "status",
+            this.ticket_action.target_status
         );
 
-    } finally {
-
-        this.ticket_action.loading = false;
-    }
-},
-
-
-
-async upload_ticket_files() {
-
-    const file_field =
-        document.getElementById("ticket_action_file");
-
-    if (!file_field?.files?.length) {
-        return;
-    }
-
-    const base_url =
-        "{{ site_address|escapejs }}{{ library|escapejs }}";
-
-    const path =
-        this.selected_ticket.link.substring(
-            base_url.length + 1
+        formData.append(
+            "comment",
+            this.ticket_action.comment || ""
         );
 
-    const upload_url =
-        "{{ sharepoint_upload_endpoint|escapejs }}";
+        for (const file of this.ticket_action.files || []) {
 
-    for (const file of file_field.files) {
-
-        if (!file?.name) {
-            continue;
+            formData.append(
+                "Upload_files",
+                file
+            );
         }
 
         const response = await fetch(
-            upload_url,
+            this.api_endpoints.ticketstatus,
             {
                 method: "POST",
-                body: file,
-                headers: {
-                    "site_address":
-                        "{{ site_address|escapejs }}",
-
-                    "library":
-                        "{{ library|escapejs }}",
-
-                    "path": path,
-
-                    "filename": file.name,
-                }
+                body: formData,
             }
         );
 
         if (!response.ok) {
-            throw response;
+
+            let error_message =
+                "Unable to update ticket status.";
+
+            try {
+                const error_data = await response.json();
+                error_message = error_data;
+            } catch (e) {
+                // Keep default message
+            }
+
+            throw new Error(
+                typeof error_message === "string"
+                    ? error_message
+                    : JSON.stringify(error_message)
+            );
         }
+
+        await response.json();
+
+        this.show_ticket_action_modal = false;
+
+        this.ticket_action = {
+            label: "",
+            target_status: "",
+            comment: "",
+            files: [],
+        };
+
+        const fileInput =
+            document.getElementById("ticket_action_files");
+
+        if (fileInput) {
+            fileInput.value = "";
+        }
+
+        await this.reload_ticket_status();
+
+        this.update_triggered = !this.update_triggered;
+
+        this.show_notification(
+            "Ticket status updated successfully."
+        );
+
+    } catch (error) {
+
+        this.show_notification(
+            error?.message ||
+            "Unable to update ticket status. Please try again."
+        );
+
+    } finally {
+
+        this.ticket_action_loading = false;
     }
 },
 
+----------------
+
+async reload_ticket_status() {
+
+    try {
+
+        const response = await fetch(
+            this.api_endpoints.ticketstatus +
+            "?ticket_number=" +
+            this.selected_ticket?.ticket_number
+        );
+
+        if (!response.ok) {
+            throw new Error("Unable to reload ticket status.");
+        }
+
+        const data = await response.json();
+
+        this.selected_ticket.ticket_status = data;
+
+    } catch (error) {
+
+        this.show_notification(
+            "Status updated, but the latest status could not be loaded."
+        );
+    }
+},
+
+-----------------------
+
+<template #actions="actionProps">
+
+    <tr
+        v-if="get_ticket_level_actions(actionProps).length > 0"
+    >
+        <th>
+            Actions
+        </th>
+
+        <td>
+
+            <div class="btn-group">
+
+                <button
+                    v-for="action in get_ticket_level_actions(actionProps)"
+                    :key="action.target_status"
+                    type="button"
+                    :class="action.class"
+                    @click="open_ticket_level_action(action)"
+                >
+                    [[ action.label ]]
+                </button>
+
+                <button
+                    v-if="actionProps?.ticket_status === 'DRAFT'"
+                    type="button"
+                    class="btn btn-sm btn-primary"
+                    @click="navigate('price_setup_request', 'edit')"
+                >
+                    Edit
+                </button>
+
+            </div>
+
+        </td>
+    </tr>
+
+</template>
+
+-------------------
+<!-- Generic Ticket Action Modal -->
+<div
+    v-if="show_ticket_action_modal"
+    class="modal fade show"
+    style="display: block;"
+    tabindex="-1"
+    aria-modal="true"
+    role="dialog"
+>
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+
+        <div class="modal-content">
+
+            <div class="modal-header">
+
+                <h5 class="modal-title">
+                    [[ ticket_action.label ]]
+                </h5>
+
+                <button
+                    type="button"
+                    class="btn-close"
+                    :disabled="ticket_action_loading"
+                    @click="close_ticket_action_modal()"
+                ></button>
+
+            </div>
+
+            <div class="modal-body">
+
+                <div class="mb-3">
+
+                    <label class="form-label fw-semibold">
+                        Ticket Number
+                    </label>
+
+                    <input
+                        type="text"
+                        class="form-control"
+                        :value="selected_ticket?.ticket_number"
+                        readonly
+                    >
+
+                </div>
+
+
+                <div class="mb-3">
+
+                    <label class="form-label fw-semibold">
+                        Target Status
+                    </label>
+
+                    <input
+                        type="text"
+                        class="form-control"
+                        :value="ticket_action.target_status"
+                        readonly
+                    >
+
+                </div>
+
+
+                <div class="mb-3">
+
+                    <label
+                        for="ticket_action_comment"
+                        class="form-label fw-semibold"
+                    >
+                        Comment
+                    </label>
+
+                    <textarea
+                        id="ticket_action_comment"
+                        class="form-control"
+                        rows="4"
+                        v-model="ticket_action.comment"
+                        placeholder="Enter your comment"
+                        :disabled="ticket_action_loading"
+                    ></textarea>
+
+                </div>
+
+
+                <div class="mb-3">
+
+                    <label
+                        for="ticket_action_files"
+                        class="form-label fw-semibold"
+                    >
+                        Attachments
+                    </label>
+
+                    <input
+                        id="ticket_action_files"
+                        type="file"
+                        multiple
+                        class="form-control"
+                        accept="image/*,application/pdf,.xlsx,.xls,.doc,.docx"
+                        @change="handle_ticket_action_files"
+                        :disabled="ticket_action_loading"
+                    >
+
+                    <small class="form-text text-muted">
+                        You can select multiple files.
+                    </small>
+
+                </div>
+
+
+                <div
+                    v-if="ticket_action.files?.length"
+                    class="mb-3"
+                >
+
+                    <label class="form-label fw-semibold">
+                        Selected Files
+                    </label>
+
+                    <ul class="list-group">
+
+                        <li
+                            v-for="file in ticket_action.files"
+                            :key="file.name"
+                            class="list-group-item d-flex justify-content-between align-items-center"
+                        >
+                            <span>
+                                [[ file.name ]]
+                            </span>
+
+                            <small class="text-muted">
+                                [[ Math.round(file.size / 1024) ]] KB
+                            </small>
+                        </li>
+
+                    </ul>
+
+                </div>
+
+            </div>
+
+            <div class="modal-footer">
+
+                <button
+                    type="button"
+                    class="btn btn-secondary"
+                    :disabled="ticket_action_loading"
+                    @click="close_ticket_action_modal()"
+                >
+                    Cancel
+                </button>
+
+                <button
+                    type="button"
+                    class="btn btn-primary"
+                    :disabled="ticket_action_loading"
+                    @click="submit_ticket_action()"
+                >
+
+                    <span
+                        v-if="ticket_action_loading"
+                        class="spinner-border spinner-border-sm me-1"
+                        role="status"
+                    ></span>
+
+                    <span v-if="!ticket_action_loading">
+                        [[ ticket_action.label ]]
+                    </span>
+
+                    <span v-else>
+                        Processing...
+                    </span>
+
+                </button>
+
+            </div>
+
+        </div>
+
+    </div>
+</div>
+
+<!-- Generic modal backdrop -->
+<div
+    v-if="show_ticket_action_modal"
+    class="modal-backdrop fade show"
+></div>
+
+--------------
 
