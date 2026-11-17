@@ -1,3 +1,190 @@
+get_ticket_status_choices() {
+    const current_status = this.get_ticket_status(this.selected_ticket);
+
+    if (!current_status || !this.workflow?.TICKET_STATUS_GRAPH) {
+        return [];
+    }
+
+    const next_statuses =
+        this.workflow.TICKET_STATUS_GRAPH[current_status] || [];
+
+    const user_roles = Array.isArray(this.user_role)
+        ? this.user_role
+        : [this.user_role];
+
+    return next_statuses.filter(status => {
+        const allowed_roles =
+            this.workflow?.TICKET_STATUS_TO_ROLE?.[status] || [];
+
+        return (
+            allowed_roles.includes(this.workflow.ADMIN_ROLE) ||
+            allowed_roles.some(role => user_roles.includes(role))
+        );
+    });
+},
+
+get_ticket_action(status) {
+
+    const actions = {
+        PENDING_SALESOPS_VALIDATION: {
+            label: "Validate",
+            class: "btn btn-primary btn-sm",
+            navigation: "validate_salesops_ticket",
+            context: "validate_salesops",
+        },
+
+        PENDING_PM_VALIDATION: {
+            label: "Validate",
+            class: "btn btn-primary btn-sm",
+            navigation: "confirm_close",
+            context: "validate_pm",
+        },
+
+        PENDING_ITCG_ANNOUNCEMENTS: {
+            label: "Update DR",
+            class: "btn btn-warning btn-sm",
+            navigation: "update_itcg",
+            context: "itcg",
+        },
+
+        PENDING_DRBG_ANNOUNCEMENTS: {
+            label: "Update ER",
+            class: "btn btn-warning btn-sm",
+            navigation: "update_drbg",
+            context: "drbg",
+        },
+    };
+
+    return actions[status] || null;
+},
+
+get_pending_setup_action(ticket) {
+
+    if (
+        ticket?.is_annoucement &&
+        ticket?.announcement_choice === "ITCG"
+    ) {
+        return {
+            label: "Update DR",
+            class: "btn btn-warning btn-sm",
+            navigation: "update_itcg",
+            context: "itcg",
+        };
+    }
+
+    if (
+        ticket?.is_annoucement &&
+        ticket?.announcement_choice === "ITCG_DRBG"
+    ) {
+        return {
+            label: "Update ER",
+            class: "btn btn-warning btn-sm",
+            navigation: "update_drbg",
+            context: "drbg",
+        };
+    }
+
+    if (
+        ticket?.is_annoucement &&
+        ticket?.announcement_choice === "DRBG"
+    ) {
+        return {
+            label: "Update ER",
+            class: "btn btn-warning btn-sm",
+            navigation: "update_drbg",
+            context: "drbg",
+        };
+    }
+
+    if (
+        !ticket?.is_annoucement &&
+        ticket?.announcement_choice === "NO_ANNOUNCEMENT"
+    ) {
+        return {
+            label: "Update PM",
+            class: "btn btn-warning btn-sm",
+            navigation: "confirm_setup",
+            context: "setup",
+        };
+    }
+
+    return null;
+},
+
+get_ticket_level_actions(ticket) {
+
+    const available_statuses = this.get_ticket_status_choices();
+
+    const actions = [];
+
+    available_statuses.forEach(status => {
+
+        if (status === "PENDING_SETUP") {
+
+            const action = this.get_pending_setup_action(ticket);
+
+            if (action) {
+                actions.push(action);
+            }
+
+            return;
+        }
+
+        const action = this.get_ticket_action(status);
+
+        if (action) {
+            actions.push(action);
+        }
+    });
+
+    return actions;
+},
+
+
+<template #actions="actionProps">
+    <tr>
+        <th>Ticket Level Actions</th>
+
+        <td>
+            <div class="d-flex flex-wrap gap-2">
+
+                <button
+                    v-for="action in get_ticket_level_actions(selected_ticket)"
+                    :key="action.navigation + action.context"
+                    type="button"
+                    :class="action.class"
+                    @click="
+                        select_ticket_and_navigate(
+                            selected_ticket,
+                            action.navigation,
+                            action.context
+                        )
+                    "
+                >
+                    [[ action.label ]]
+                </button>
+
+            </div>
+        </td>
+    </tr>
+</template>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 class TicketReadSerializer(serializers.ModelSerializer):
     subject = serializers.CharField(label="Subject")
     elp_start_date = serializers.DateField(label="ELP Start Date")
