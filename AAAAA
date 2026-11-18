@@ -1,3 +1,675 @@
+methods: {
+
+    get_ticket_status(ticket) {
+        const ticket_status = ticket?.ticket_status;
+
+        if (!ticket_status) {
+            return "Updating Status...";
+        }
+
+        if (Array.isArray(ticket_status)) {
+            if (ticket_status.length === 0) {
+                return "Updating Status...";
+            }
+
+            return [...ticket_status]
+                .sort((a, b) => {
+                    const dateA = new Date(a.modified);
+                    const dateB = new Date(b.modified);
+
+                    return dateB - dateA;
+                })[0]?.status || "Updating Status...";
+        }
+
+        if (typeof ticket_status === "object") {
+            return ticket_status.status || "Updating Status...";
+        }
+
+        if (typeof ticket_status === "string") {
+            return ticket_status;
+        }
+
+        return "Updating Status...";
+    },
+
+
+    /*
+     * Check whether current user has the same permission
+     * as the existing Django buttons:
+     *
+     * Price Request User-SalesOps
+     * OR
+     * Price Request Admin
+     */
+    is_salesops_or_admin() {
+
+        const roles = Array.isArray(this.user_role)
+            ? this.user_role
+            : [this.user_role];
+
+        return (
+            roles.includes("Price Request User-SalesOps") ||
+            roles.includes(this.workflow?.ADMIN_ROLE) ||
+            roles.includes("Price Request Admin")
+        );
+    },
+
+
+    /*
+     * Generic status based actions.
+     *
+     * These are actions which can use the generic
+     * ticket action modal.
+     */
+    get_ticket_action(status) {
+
+        const actions = {
+
+            PENDING_SALESOPS_VALIDATION: {
+                label: "Validate",
+                class: "btn btn-primary rounded",
+                type: "GENERIC",
+                navigation: "validate_salesops_ticket",
+                context: "validate_salesops",
+                target_status: "PENDING_SETUP",
+            },
+
+            PENDING_PM_VALIDATION: {
+                label: "Validate",
+                class: "btn btn-primary rounded",
+                type: "GENERIC",
+                navigation: "confirm_close",
+                context: "validate_pm",
+                target_status: "CLOSED",
+            },
+
+        };
+
+        return actions[status] || null;
+    },
+
+
+    /*
+     * Actions specifically related to PENDING_SETUP.
+     *
+     * This follows exactly the conditions from the
+     * existing hardcoded buttons.
+     */
+    get_pending_setup_action(ticket) {
+
+        const current_status = this.get_ticket_status(ticket);
+
+        /*
+         * PENDING_SETUP + ITCG
+         * => Update DR
+         */
+        if (
+            ticket?.is_annoucement &&
+            ticket?.announcement_choice === "ITCG" &&
+            current_status === "PENDING_SETUP"
+        ) {
+            return {
+                label: "Update DR",
+                class: "btn btn-warning rounded",
+                type: "UPDATE_DR",
+                navigation: "update_itcg",
+                context: "itcg",
+            };
+        }
+
+
+        /*
+         * PENDING_SETUP + ITCG_DRBG
+         * => Update ER
+         */
+        if (
+            ticket?.is_annoucement &&
+            ticket?.announcement_choice === "ITCG_DRBG" &&
+            current_status === "PENDING_SETUP"
+        ) {
+            return {
+                label: "Update ER",
+                class: "btn btn-warning rounded",
+                type: "UPDATE_ER",
+                navigation: "update_drbg",
+                context: "drbg",
+            };
+        }
+
+
+        /*
+         * PENDING_SETUP + DRBG
+         * => Update ER
+         */
+        if (
+            ticket?.is_annoucement &&
+            ticket?.announcement_choice === "DRBG" &&
+            current_status === "PENDING_SETUP"
+        ) {
+            return {
+                label: "Update ER",
+                class: "btn btn-warning rounded",
+                type: "UPDATE_ER",
+                navigation: "update_drbg",
+                context: "drbg",
+            };
+        }
+
+
+        /*
+         * PENDING_SETUP + NO ANNOUNCEMENT
+         * => Update PM
+         */
+        if (
+            !ticket?.is_annoucement &&
+            ticket?.announcement_choice === "NO_ANNOUNCEMENT" &&
+            current_status === "PENDING_SETUP"
+        ) {
+            return {
+                label: "Update PM",
+                class: "btn btn-warning rounded",
+                type: "GENERIC",
+                navigation: "confirm_setup",
+                context: "setup",
+                target_status: "PENDING_PM_VALIDATION",
+            };
+        }
+
+        return null;
+    },
+
+
+    /*
+     * Main method used by the Ticket Level Actions section.
+     *
+     * This reproduces the exact conditions of the
+     * existing hardcoded buttons.
+     */
+    get_ticket_level_actions(ticket) {
+
+        /*
+         * Same permission as:
+         *
+         * {% if request.user|has_group:'Price Request User-SalesOps'
+         *    or request.user|has_group:'Price Request Admin' %}
+         */
+        if (!this.is_salesops_or_admin()) {
+            return [];
+        }
+
+        const current_status = this.get_ticket_status(ticket);
+
+        const actions = [];
+
+
+        /*
+         * 1. SALESOPS VALIDATION
+         *
+         * Existing button:
+         *
+         * PENDING_SALESOPS_VALIDATION
+         * => Validate
+         */
+        if (
+            current_status === "PENDING_SALESOPS_VALIDATION"
+        ) {
+            actions.push({
+                label: "Validate",
+                class: "btn btn-primary rounded",
+                type: "GENERIC",
+                navigation: "validate_salesops_ticket",
+                context: "validate_salesops",
+                target_status: "PENDING_SETUP",
+            });
+        }
+
+
+        /*
+         * 2. PENDING_SETUP + ITCG
+         *
+         * => Update DR
+         */
+        if (
+            current_status === "PENDING_SETUP" &&
+            ticket?.is_annoucement &&
+            ticket?.announcement_choice === "ITCG"
+        ) {
+            actions.push({
+                label: "Update DR",
+                class: "btn btn-warning rounded",
+                type: "UPDATE_DR",
+                navigation: "update_itcg",
+                context: "itcg",
+            });
+        }
+
+
+        /*
+         * 3. PENDING_SETUP + ITCG_DRBG
+         *
+         * => Update ER
+         */
+        if (
+            current_status === "PENDING_SETUP" &&
+            ticket?.is_annoucement &&
+            ticket?.announcement_choice === "ITCG_DRBG"
+        ) {
+            actions.push({
+                label: "Update ER",
+                class: "btn btn-warning rounded",
+                type: "UPDATE_ER",
+                navigation: "update_drbg",
+                context: "drbg",
+            });
+        }
+
+
+        /*
+         * 4. PENDING_ITCG_ANNOUNCEMENTS + ITCG_DRBG
+         *
+         * => Update DR
+         */
+        if (
+            current_status === "PENDING_ITCG_ANNOUNCEMENTS" &&
+            ticket?.is_annoucement &&
+            ticket?.announcement_choice === "ITCG_DRBG"
+        ) {
+            actions.push({
+                label: "Update DR",
+                class: "btn btn-warning",
+                type: "UPDATE_DR",
+                navigation: "update_itcg",
+                context: "itcg",
+            });
+        }
+
+
+        /*
+         * 5. PENDING_SETUP + DRBG
+         *
+         * => Update ER
+         */
+        if (
+            current_status === "PENDING_SETUP" &&
+            ticket?.is_annoucement &&
+            ticket?.announcement_choice === "DRBG"
+        ) {
+            actions.push({
+                label: "Update ER",
+                class: "btn btn-warning rounded",
+                type: "UPDATE_ER",
+                navigation: "update_drbg",
+                context: "drbg",
+            });
+        }
+
+
+        /*
+         * 6. PENDING_SETUP + NO_ANNOUNCEMENT
+         *
+         * => Update PM
+         */
+        if (
+            current_status === "PENDING_SETUP" &&
+            !ticket?.is_annoucement &&
+            ticket?.announcement_choice === "NO_ANNOUNCEMENT"
+        ) {
+            actions.push({
+                label: "Update PM",
+                class: "btn btn-warning rounded",
+                type: "GENERIC",
+                navigation: "confirm_setup",
+                context: "setup",
+                target_status: "PENDING_PM_VALIDATION",
+            });
+        }
+
+
+        /*
+         * 7. PENDING_PM_VALIDATION
+         *
+         * Generic Validate button.
+         *
+         * This was not in the hardcoded block you pasted,
+         * but it is part of the workflow and can use the
+         * generic modal.
+         */
+        if (
+            current_status === "PENDING_PM_VALIDATION"
+        ) {
+            actions.push({
+                label: "Validate",
+                class: "btn btn-primary rounded",
+                type: "GENERIC",
+                navigation: "confirm_close",
+                context: "validate_pm",
+                target_status: "CLOSED",
+            });
+        }
+
+
+        return actions;
+    },
+
+
+    /*
+     * Called when the user clicks an action in
+     * Ticket Level Actions.
+     */
+    open_ticket_level_action(action) {
+
+        /*
+         * Update DR has its own dedicated modal/page.
+         */
+        if (action.type === "UPDATE_DR") {
+
+            this.select_ticket_and_navigate(
+                this.selected_ticket,
+                action.navigation,
+                action.context
+            );
+
+            return;
+        }
+
+
+        /*
+         * Update ER has its own dedicated modal/page.
+         */
+        if (action.type === "UPDATE_ER") {
+
+            this.select_ticket_and_navigate(
+                this.selected_ticket,
+                action.navigation,
+                action.context
+            );
+
+            return;
+        }
+
+
+        /*
+         * Everything else uses the generic
+         * Ticket Action modal.
+         */
+        this.ticket_action = {
+            label: action.label,
+            target_status: action.target_status,
+            comment: "",
+            files: [],
+        };
+
+        this.show_ticket_action_modal = true;
+    },
+
+
+    /*
+     * Close generic action modal.
+     */
+    close_ticket_action_modal() {
+
+        this.show_ticket_action_modal = false;
+
+        this.ticket_action = {
+            label: "",
+            target_status: "",
+            comment: "",
+            files: [],
+        };
+
+        this.ticket_action_loading = false;
+    },
+
+
+    /*
+     * Handle files selected in generic action modal.
+     */
+    handle_ticket_action_files(event) {
+
+        this.ticket_action.files = Array.from(
+            event.target.files || []
+        );
+    },
+
+
+    /*
+     * Submit generic ticket action.
+     *
+     * Uses existing TicketStatus API.
+     */
+    async submit_ticket_action() {
+
+        if (!this.selected_ticket?.ticket_number) {
+            return;
+        }
+
+        if (!this.ticket_action?.target_status) {
+            return;
+        }
+
+        this.ticket_action_loading = true;
+
+        try {
+
+            const form_data = new FormData();
+
+            form_data.append(
+                "ticket_number",
+                this.selected_ticket.ticket_number
+            );
+
+            form_data.append(
+                "status",
+                this.ticket_action.target_status
+            );
+
+            form_data.append(
+                "comment",
+                this.ticket_action.comment || ""
+            );
+
+
+            /*
+             * Add attachments.
+             */
+            if (this.ticket_action.files?.length) {
+
+                this.ticket_action.files.forEach(file => {
+
+                    form_data.append(
+                        "Upload_files",
+                        file
+                    );
+
+                });
+            }
+
+
+            await axios.post(
+                this.api_endpoints.ticketstatus,
+                form_data,
+                {
+                    headers: {
+                        "Content-Type": "multipart/form-data"
+                    }
+                }
+            );
+
+
+            /*
+             * Close modal first.
+             */
+            this.close_ticket_action_modal();
+
+
+            /*
+             * Reload latest ticket status.
+             */
+            await this.reload_ticket_status();
+
+
+            /*
+             * Optional refresh of the ticket table
+             * if it exists.
+             */
+            if (this.$refs.ticketTable?.load_data) {
+                await this.$refs.ticketTable.load_data();
+            }
+
+        } catch (error) {
+
+            console.error(
+                "Error submitting ticket action:",
+                error
+            );
+
+            alert(
+                error?.response?.data?.detail ||
+                error?.response?.data ||
+                "Unable to update ticket status."
+            );
+
+        } finally {
+
+            this.ticket_action_loading = false;
+        }
+    },
+
+
+    /*
+     * Reload the selected ticket's status after
+     * a generic action is completed.
+     */
+    async reload_ticket_status() {
+
+        if (!this.selected_ticket?.ticket_number) {
+            return;
+        }
+
+        try {
+
+            const response = await axios.get(
+                this.api_endpoints.ticketstatus,
+                {
+                    params: {
+                        ticket_number:
+                            this.selected_ticket.ticket_number
+                    }
+                }
+            );
+
+
+            /*
+             * Update the selected ticket status.
+             */
+            this.selected_ticket.ticket_status =
+                response.data;
+
+
+        } catch (error) {
+
+            console.error(
+                "Error reloading ticket status:",
+                error
+            );
+        }
+    },
+
+
+    /*
+     * Existing line filter.
+     */
+    line_filter() {
+
+        return {
+            ticket_number:
+                this.selected_ticket?.ticket_number ||
+                this.ticket_number
+        };
+    },
+
+
+    /*
+     * Existing status history URL.
+     */
+    price_request_status_history_url() {
+
+        return (
+            this.api_endpoints.ticketstatus +
+            "?ticket_number=" +
+            this.selected_ticket?.ticket_number
+        );
+    },
+
+
+    /*
+     * Existing ticket status choices method.
+     *
+     * Keep this if you are already using it elsewhere.
+     */
+    get_ticket_status_choices() {
+
+        const current_status =
+            this.get_ticket_status(this.selected_ticket);
+
+        if (
+            !current_status ||
+            current_status === "Updating Status..."
+        ) {
+            return [];
+        }
+
+        const graph =
+            this.workflow?.TICKET_STATUS_GRAPH || {};
+
+        const status_to_role =
+            this.workflow?.TICKET_STATUS_TO_ROLE || {};
+
+        const allowed_next_statuses =
+            graph[current_status] || [];
+
+        const user_roles = Array.isArray(this.user_role)
+            ? this.user_role
+            : [this.user_role];
+
+        return allowed_next_statuses.filter(status => {
+
+            const allowed_roles =
+                status_to_role[status] || [];
+
+            return allowed_roles.some(role =>
+                user_roles.includes(role)
+            );
+
+        });
+    },
+
+
+    /*
+     * Existing helper for workflow status action.
+     */
+    get_ticket_status_action(status) {
+
+        return this.get_ticket_action(status);
+    },
+
+
+    /*
+     * Existing navigation method should remain
+     * unchanged in your application.
+     *
+     * Do NOT duplicate your existing
+     * select_ticket_and_navigate() here if it
+     * already exists in your methods.
+     */
+
+}
+
+=======================================
+
+
+
+
 Great job this year—your strong ownership of DevOps and release activities has been a key strength. You successfully delivered CI/CD pipelines, the API gateway setup, and critical infrastructure initiatives including database upgrades, application deployments, and cloud migration. Your consistent and flawless execution of releases in the Orders area has ensured smooth and reliable deliveries. Your proactive approach to configuration management, willingness to take on new challenges, and continuous improvement mindset have been well recognized by the client. Keep up the excellent work and continue strengthening your technical expertise and leadership capabilities.
 
 
