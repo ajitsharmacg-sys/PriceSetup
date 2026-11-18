@@ -1,3 +1,17 @@
+is_salesops_or_admin() {
+    const roles = this.user_role
+        .flatMap(role => String(role).split(","))
+        .map(role => role.trim());
+
+    return (
+        roles.includes("Price Request User-SalesOps") ||
+        roles.includes("Price Request Admin")
+    );
+},
+
+
+
+
 methods: {
 
     /*
