@@ -10,7 +10,13 @@ is_salesops_or_admin() {
 },
 
 
-
+const user_roles = (Array.isArray(this.user_role)
+        ? this.user_role
+        : [this.user_role]
+    )
+        .flatMap(role => String(role).split(","))
+        .map(role => role.trim())
+        .filter(Boolean);
 
 methods: {
 
