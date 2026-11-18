@@ -1,3 +1,574 @@
+ticket_action: {
+    type: "",
+    title: "",
+    confirm_status: "",
+    reject_status: "",
+    show_reject: false,
+    comment: "",
+    files: [],
+},
+
+show_ticket_action_modal: false,
+ticket_action_loading: false,
+
+
+get_ticket_level_actions(ticket) {
+
+    if (!this.is_salesops_or_admin()) {
+        return [];
+    }
+
+    const current_status = this.get_ticket_status(ticket);
+    const actions = [];
+
+    /*
+     * ---------------------------------------------
+     * PENDING SALESOPS VALIDATION
+     * ---------------------------------------------
+     *
+     * Confirm -> PENDING_SETUP
+     * Reject  -> SALESOPS_REJECTED
+     */
+    if (
+        current_status === "PENDING_SALESOPS_VALIDATION"
+    ) {
+        actions.push({
+            label: "Validate",
+            class: "btn btn-primary rounded",
+            type: "GENERIC_MODAL",
+            action_type: "SALESOPS_VALIDATION",
+        });
+    }
+
+
+    /*
+     * ---------------------------------------------
+     * PENDING SETUP - ITCG
+     * ---------------------------------------------
+     *
+     * Open dedicated DR page
+     */
+    if (
+        current_status === "PENDING_SETUP" &&
+        ticket?.is_annoucement &&
+        ticket?.announcement_choice === "ITCG"
+    ) {
+        actions.push({
+            label: "Update DR",
+            class: "btn btn-warning rounded",
+            type: "PAGE",
+            navigation: "update_itcg",
+            context: "itcg",
+        });
+    }
+
+
+    /*
+     * ---------------------------------------------
+     * PENDING SETUP - ITCG_DRBG
+     * ---------------------------------------------
+     *
+     * Open dedicated ER page
+     */
+    if (
+        current_status === "PENDING_SETUP" &&
+        ticket?.is_annoucement &&
+        ticket?.announcement_choice === "ITCG_DRBG"
+    ) {
+        actions.push({
+            label: "Update ER",
+            class: "btn btn-warning rounded",
+            type: "PAGE",
+            navigation: "update_drbg",
+            context: "drbg",
+        });
+    }
+
+
+    /*
+     * ---------------------------------------------
+     * PENDING SETUP - DRBG
+     * ---------------------------------------------
+     *
+     * Open dedicated ER page
+     */
+    if (
+        current_status === "PENDING_SETUP" &&
+        ticket?.is_annoucement &&
+        ticket?.announcement_choice === "DRBG"
+    ) {
+        actions.push({
+            label: "Update ER",
+            class: "btn btn-warning rounded",
+            type: "PAGE",
+            navigation: "update_drbg",
+            context: "drbg",
+        });
+    }
+
+
+    /*
+     * ---------------------------------------------
+     * PENDING SETUP - NO ANNOUNCEMENT
+     * ---------------------------------------------
+     *
+     * Generic modal
+     *
+     * Only Confirm button
+     */
+    if (
+        current_status === "PENDING_SETUP" &&
+        !ticket?.is_annoucement &&
+        ticket?.announcement_choice === "NO_ANNOUNCEMENT"
+    ) {
+        actions.push({
+            label: "Update PM",
+            class: "btn btn-warning rounded",
+            type: "GENERIC_MODAL",
+            action_type: "SETUP_CONFIRM",
+        });
+    }
+
+
+    /*
+     * ---------------------------------------------
+     * PENDING ITCG ANNOUNCEMENTS
+     * ---------------------------------------------
+     *
+     * ITCG_DRBG -> Update DR
+     */
+    if (
+        current_status === "PENDING_ITCG_ANNOUNCEMENTS" &&
+        ticket?.is_annoucement &&
+        ticket?.announcement_choice === "ITCG_DRBG"
+    ) {
+        actions.push({
+            label: "Update DR",
+            class: "btn btn-warning",
+            type: "PAGE",
+            navigation: "update_itcg",
+            context: "itcg",
+        });
+    }
+
+
+    /*
+     * ---------------------------------------------
+     * PENDING PM VALIDATION
+     * ---------------------------------------------
+     *
+     * Confirm -> CLOSED
+     * Reject  -> PM_REJECTED
+     */
+    if (
+        current_status === "PENDING_PM_VALIDATION"
+    ) {
+        actions.push({
+            label: "Validate",
+            class: "btn btn-primary rounded",
+            type: "GENERIC_MODAL",
+            action_type: "PM_VALIDATION",
+        });
+    }
+
+    return actions;
+},
+
+
+is_salesops_or_admin() {
+
+    const roles = Array.isArray(this.user_role)
+        ? this.user_role
+        : [this.user_role];
+
+    return (
+        roles.includes("Price Request User-SalesOps") ||
+        roles.includes("Price Request Admin") ||
+        roles.includes(this.workflow?.ADMIN_ROLE)
+    );
+},
+
+
+open_ticket_level_action(action) {
+
+    /*
+     * Dedicated page:
+     *
+     * Update DR
+     * Update ER
+     */
+    if (action.type === "PAGE") {
+
+        this.select_ticket_and_navigate(
+            this.selected_ticket,
+            action.navigation,
+            action.context
+        );
+
+        return;
+    }
+
+
+    /*
+     * Generic modal
+     */
+    if (action.type === "GENERIC_MODAL") {
+
+        this.open_generic_ticket_action_modal(
+            action.action_type
+        );
+
+        return;
+    }
+},
+
+
+open_generic_ticket_action_modal(action_type) {
+
+    /*
+     * Reset modal first
+     */
+    this.ticket_action = {
+        type: "",
+        title: "",
+        confirm_status: "",
+        reject_status: "",
+        show_reject: false,
+        comment: "",
+        files: [],
+    };
+
+
+    /*
+     * ---------------------------------------------
+     * SALESOPS VALIDATION
+     * ---------------------------------------------
+     */
+    if (action_type === "SALESOPS_VALIDATION") {
+
+        this.ticket_action = {
+            type: "SALESOPS_VALIDATION",
+            title: "SalesOps Validation",
+
+            confirm_status: "PENDING_SETUP",
+            reject_status: "SALESOPS_REJECTED",
+
+            show_reject: true,
+
+            comment: "",
+            files: [],
+        };
+    }
+
+
+    /*
+     * ---------------------------------------------
+     * PENDING SETUP
+     * NO ANNOUNCEMENT
+     * ---------------------------------------------
+     *
+     * Only Confirm
+     */
+    else if (action_type === "SETUP_CONFIRM") {
+
+        this.ticket_action = {
+            type: "SETUP_CONFIRM",
+            title: "Confirm Setup",
+
+            confirm_status: "PENDING_PM_VALIDATION",
+            reject_status: "",
+
+            show_reject: false,
+
+            comment: "",
+            files: [],
+        };
+    }
+
+
+    /*
+     * ---------------------------------------------
+     * PM VALIDATION
+     * ---------------------------------------------
+     */
+    else if (action_type === "PM_VALIDATION") {
+
+        this.ticket_action = {
+            type: "PM_VALIDATION",
+            title: "PM Validation",
+
+            confirm_status: "CLOSED",
+            reject_status: "PM_REJECTED",
+
+            show_reject: true,
+
+            comment: "",
+            files: [],
+        };
+    }
+
+
+    this.show_ticket_action_modal = true;
+},
+
+
+async confirm_ticket_action() {
+
+    await this.submit_ticket_action(
+        this.ticket_action.confirm_status
+    );
+},
+
+async reject_ticket_action() {
+
+    await this.submit_ticket_action(
+        this.ticket_action.reject_status
+    );
+},
+
+
+async submit_ticket_action(target_status) {
+
+    if (!this.selected_ticket?.ticket_number) {
+        return;
+    }
+
+    if (!target_status) {
+        return;
+    }
+
+    this.ticket_action_loading = true;
+
+    try {
+
+        const form_data = new FormData();
+
+        form_data.append(
+            "ticket_number",
+            this.selected_ticket.ticket_number
+        );
+
+        form_data.append(
+            "status",
+            target_status
+        );
+
+        form_data.append(
+            "comment",
+            this.ticket_action.comment || ""
+        );
+
+
+        /*
+         * Attachments
+         */
+        if (this.ticket_action.files?.length) {
+
+            this.ticket_action.files.forEach(file => {
+
+                form_data.append(
+                    "Upload_files",
+                    file
+                );
+
+            });
+        }
+
+
+        await axios.post(
+            this.api_endpoints.ticketstatus,
+            form_data,
+            {
+                headers: {
+                    "Content-Type": "multipart/form-data"
+                }
+            }
+        );
+
+
+        /*
+         * Close modal
+         */
+        this.close_ticket_action_modal();
+
+
+        /*
+         * Reload latest status
+         */
+        await this.reload_ticket_status();
+
+
+    } catch (error) {
+
+        console.error(
+            "Error updating ticket status:",
+            error
+        );
+
+        alert(
+            error?.response?.data?.detail ||
+            error?.response?.data ||
+            "Unable to update ticket status."
+        );
+
+    } finally {
+
+        this.ticket_action_loading = false;
+    }
+},
+
+
+close_ticket_action_modal() {
+
+    this.show_ticket_action_modal = false;
+
+    this.ticket_action = {
+        type: "",
+        title: "",
+        confirm_status: "",
+        reject_status: "",
+        show_reject: false,
+        comment: "",
+        files: [],
+    };
+
+    this.ticket_action_loading = false;
+},
+
+handle_ticket_action_files(event) {
+
+    this.ticket_action.files =
+        Array.from(event.target.files || []);
+},
+
+
+<div
+    class="modal fade"
+    :class="{ show: show_ticket_action_modal }"
+    :style="{
+        display: show_ticket_action_modal ? 'block' : 'none'
+    }"
+    tabindex="-1"
+    v-if="show_ticket_action_modal"
+>
+    <div class="modal-dialog modal-dialog-centered">
+
+        <div class="modal-content">
+
+            <div class="modal-header">
+
+                <h5 class="modal-title">
+                    [[ ticket_action.title ]]
+                </h5>
+
+                <button
+                    type="button"
+                    class="btn-close"
+                    @click="close_ticket_action_modal()"
+                    :disabled="ticket_action_loading"
+                ></button>
+
+            </div>
+
+
+            <div class="modal-body">
+
+                <div class="mb-3">
+
+                    <label class="form-label">
+                        Comment
+                    </label>
+
+                    <textarea
+                        class="form-control"
+                        rows="4"
+                        v-model="ticket_action.comment"
+                        placeholder="Enter your comment"
+                    ></textarea>
+
+                </div>
+
+
+                <div class="mb-3">
+
+                    <label class="form-label">
+                        Attachments
+                    </label>
+
+                    <input
+                        type="file"
+                        class="form-control"
+                        multiple
+                        @change="handle_ticket_action_files"
+                    >
+
+                </div>
+
+            </div>
+
+
+            <div class="modal-footer">
+
+                <button
+                    type="button"
+                    class="btn btn-secondary"
+                    @click="close_ticket_action_modal()"
+                    :disabled="ticket_action_loading"
+                >
+                    Cancel
+                </button>
+
+
+                <!-- Reject -->
+                <button
+                    v-if="ticket_action.show_reject"
+                    type="button"
+                    class="btn btn-danger"
+                    @click="reject_ticket_action()"
+                    :disabled="ticket_action_loading"
+                >
+                    Reject
+                </button>
+
+
+                <!-- Confirm -->
+                <button
+                    type="button"
+                    class="btn btn-primary"
+                    @click="confirm_ticket_action()"
+                    :disabled="ticket_action_loading"
+                >
+                    Confirm
+                </button>
+
+            </div>
+
+        </div>
+
+    </div>
+</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 methods: {
 
     get_ticket_status(ticket) {
