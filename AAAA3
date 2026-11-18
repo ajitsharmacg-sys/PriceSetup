@@ -1,0 +1,709 @@
+methods: {
+
+    /*
+     * Get current ticket status
+     */
+    get_ticket_status(ticket) {
+
+        const status = ticket?.ticket_status;
+
+        if (!status) {
+            return null;
+        }
+
+        /*
+         * In case API returns status history
+         */
+        if (Array.isArray(status)) {
+
+            if (status.length === 0) {
+                return null;
+            }
+
+            return [...status]
+                .sort((a, b) => {
+                    const dateA = new Date(
+                        a.modified || a.meta_created_date
+                    );
+
+                    const dateB = new Date(
+                        b.modified || b.meta_created_date
+                    );
+
+                    return dateB - dateA;
+                })[0]?.status || null;
+        }
+
+        /*
+         * In case API returns object
+         */
+        if (typeof status === "object") {
+            return status.status || null;
+        }
+
+        /*
+         * Normal string response
+         */
+        return status;
+    },
+
+
+    /*
+     * Check whether current user is allowed to
+     * perform Ticket Level Actions.
+     *
+     * This is based on the same SalesOps/Admin
+     * restriction currently used by the page.
+     */
+    is_salesops_or_admin() {
+
+        const user_roles = Array.isArray(this.user_role)
+            ? this.user_role
+            : [this.user_role];
+
+        return (
+            user_roles.includes("Price Request User-SalesOps") ||
+            user_roles.includes(this.workflow?.ADMIN_ROLE) ||
+            user_roles.includes("Price Request Admin")
+        );
+    },
+
+
+    /*
+     * Get next statuses allowed by WORKFLOW.
+     *
+     * This should be the only place where we decide
+     * whether a transition is allowed.
+     */
+    get_ticket_status_choices(ticket = this.selected_ticket) {
+
+        const current_status = this.get_ticket_status(ticket);
+
+        if (
+            !current_status ||
+            !this.workflow?.TICKET_STATUS_GRAPH
+        ) {
+            return [];
+        }
+
+        const next_statuses =
+            this.workflow.TICKET_STATUS_GRAPH[current_status] || [];
+
+        const user_roles = Array.isArray(this.user_role)
+            ? this.user_role
+            : [this.user_role];
+
+        return next_statuses.filter(status => {
+
+            const allowed_roles =
+                this.workflow?.TICKET_STATUS_TO_ROLE?.[status] || [];
+
+            return (
+                allowed_roles.includes(this.workflow.ADMIN_ROLE) ||
+                allowed_roles.some(role =>
+                    user_roles.includes(role)
+                )
+            );
+        });
+    },
+
+
+    /*
+     * Determine whether the ticket should open
+     * the dedicated DR page.
+     */
+    is_update_dr_action(ticket, current_status) {
+
+        return (
+            (
+                current_status === "PENDING_SETUP" &&
+                ticket?.is_annoucement &&
+                ticket?.announcement_choice === "ITCG"
+            )
+            ||
+            (
+                current_status === "PENDING_ITCG_ANNOUNCEMENTS" &&
+                ticket?.is_annoucement &&
+                ticket?.announcement_choice === "ITCG_DRBG"
+            )
+        );
+    },
+
+
+    /*
+     * Determine whether the ticket should open
+     * the dedicated ER page.
+     */
+    is_update_er_action(ticket, current_status) {
+
+        return (
+            current_status === "PENDING_SETUP" &&
+            ticket?.is_annoucement &&
+            (
+                ticket?.announcement_choice === "ITCG_DRBG" ||
+                ticket?.announcement_choice === "DRBG"
+            )
+        );
+    },
+
+
+    /*
+     * Build all Ticket Level Actions.
+     *
+     * IMPORTANT:
+     * The available transitions come from workflow.
+     * The announcement conditions only decide which UI
+     * action should represent the transition.
+     */
+    get_ticket_level_actions(ticket) {
+
+        if (!this.is_salesops_or_admin()) {
+            return [];
+        }
+
+        const current_status =
+            this.get_ticket_status(ticket);
+
+        if (!current_status) {
+            return [];
+        }
+
+        const available_statuses =
+            this.get_ticket_status_choices(ticket);
+
+        const actions = [];
+
+
+        /*
+         * ------------------------------------------------
+         * UPDATE DR
+         * ------------------------------------------------
+         *
+         * Dedicated page.
+         *
+         * We don't create a generic modal action here.
+         */
+        if (
+            this.is_update_dr_action(
+                ticket,
+                current_status
+            )
+        ) {
+
+            actions.push({
+                label: "Update DR",
+                class: "btn btn-warning btn-sm",
+                type: "PAGE",
+                navigation: "update_itcg",
+                context: "itcg",
+            });
+
+            return actions;
+        }
+
+
+        /*
+         * ------------------------------------------------
+         * UPDATE ER
+         * ------------------------------------------------
+         *
+         * Dedicated page.
+         */
+        if (
+            this.is_update_er_action(
+                ticket,
+                current_status
+            )
+        ) {
+
+            actions.push({
+                label: "Update ER",
+                class: "btn btn-warning btn-sm",
+                type: "PAGE",
+                navigation: "update_drbg",
+                context: "drbg",
+            });
+
+            return actions;
+        }
+
+
+        /*
+         * ------------------------------------------------
+         * GENERIC WORKFLOW ACTIONS
+         * ------------------------------------------------
+         *
+         * The actions below are generated ONLY from
+         * statuses allowed by workflow.
+         */
+
+
+        /*
+         * PENDING_SALESOPS_VALIDATION
+         *
+         * Workflow should provide:
+         *
+         * PENDING_SETUP
+         * SALESOPS_REJECTED
+         *
+         * Therefore:
+         *
+         * Confirm -> PENDING_SETUP
+         * Reject  -> SALESOPS_REJECTED
+         */
+        if (
+            current_status === "PENDING_SALESOPS_VALIDATION"
+        ) {
+
+            if (
+                available_statuses.includes(
+                    "PENDING_SETUP"
+                )
+            ) {
+
+                actions.push({
+                    label: "Confirm",
+                    class: "btn btn-primary btn-sm",
+                    type: "GENERIC_MODAL",
+                    action_type: "CONFIRM",
+                    target_status: "PENDING_SETUP",
+                });
+            }
+
+
+            if (
+                available_statuses.includes(
+                    "SALESOPS_REJECTED"
+                )
+            ) {
+
+                actions.push({
+                    label: "Reject",
+                    class: "btn btn-danger btn-sm",
+                    type: "GENERIC_MODAL",
+                    action_type: "REJECT",
+                    target_status: "SALESOPS_REJECTED",
+                });
+            }
+
+            return actions;
+        }
+
+
+        /*
+         * ------------------------------------------------
+         * PENDING_SETUP
+         * ------------------------------------------------
+         *
+         * If there is NO announcement:
+         *
+         * Workflow:
+         * PENDING_SETUP -> PENDING_PM_VALIDATION
+         *
+         * Only Confirm is shown.
+         */
+        if (
+            current_status === "PENDING_SETUP" &&
+            !ticket?.is_annoucement &&
+            ticket?.announcement_choice === "NO_ANNOUNCEMENT"
+        ) {
+
+            if (
+                available_statuses.includes(
+                    "PENDING_PM_VALIDATION"
+                )
+            ) {
+
+                actions.push({
+                    label: "Update PM",
+                    class: "btn btn-warning btn-sm",
+                    type: "GENERIC_MODAL",
+                    action_type: "CONFIRM",
+                    target_status: "PENDING_PM_VALIDATION",
+                });
+            }
+
+            return actions;
+        }
+
+
+        /*
+         * ------------------------------------------------
+         * PENDING_PM_VALIDATION
+         *
+         * Workflow should provide:
+         *
+         * CLOSED
+         * PM_REJECTED
+         *
+         * Therefore:
+         *
+         * Confirm -> CLOSED
+         * Reject  -> PM_REJECTED
+         */
+        if (
+            current_status === "PENDING_PM_VALIDATION"
+        ) {
+
+            if (
+                available_statuses.includes(
+                    "CLOSED"
+                )
+            ) {
+
+                actions.push({
+                    label: "Confirm",
+                    class: "btn btn-primary btn-sm",
+                    type: "GENERIC_MODAL",
+                    action_type: "CONFIRM",
+                    target_status: "CLOSED",
+                });
+            }
+
+
+            if (
+                available_statuses.includes(
+                    "PM_REJECTED"
+                )
+            ) {
+
+                actions.push({
+                    label: "Reject",
+                    class: "btn btn-danger btn-sm",
+                    type: "GENERIC_MODAL",
+                    action_type: "REJECT",
+                    target_status: "PM_REJECTED",
+                });
+            }
+
+            return actions;
+        }
+
+
+        return actions;
+    },
+
+
+    /*
+     * Open the appropriate action.
+     */
+    open_ticket_level_action(action) {
+
+        if (!action) {
+            return;
+        }
+
+
+        /*
+         * -----------------------------------------------
+         * Dedicated DR / ER pages
+         * -----------------------------------------------
+         */
+        if (action.type === "PAGE") {
+
+            this.select_ticket_and_navigate(
+                this.selected_ticket,
+                action.navigation,
+                action.context
+            );
+
+            return;
+        }
+
+
+        /*
+         * -----------------------------------------------
+         * Generic workflow modal
+         * -----------------------------------------------
+         */
+        if (
+            action.type === "GENERIC_MODAL"
+        ) {
+
+            this.ticket_action = {
+                label: action.label,
+                target_status: action.target_status,
+                comment: "",
+                files: [],
+            };
+
+            this.show_ticket_action_modal = true;
+        }
+    },
+
+
+    /*
+     * Handle selected files.
+     */
+    handle_ticket_action_files(event) {
+
+        this.ticket_action.files =
+            Array.from(
+                event.target.files || []
+            );
+    },
+
+
+    /*
+     * Submit generic workflow action.
+     */
+    async submit_ticket_action() {
+
+        if (
+            !this.selected_ticket?.ticket_number
+        ) {
+
+            this.show_notification(
+                "Ticket number is missing."
+            );
+
+            return;
+        }
+
+
+        if (
+            !this.ticket_action?.target_status
+        ) {
+
+            this.show_notification(
+                "Target status is missing."
+            );
+
+            return;
+        }
+
+
+        /*
+         * IMPORTANT:
+         *
+         * Validate the transition AGAIN against
+         * the latest workflow before submitting.
+         *
+         * This protects against stale UI.
+         */
+        const allowed_statuses =
+            this.get_ticket_status_choices(
+                this.selected_ticket
+            );
+
+
+        if (
+            !allowed_statuses.includes(
+                this.ticket_action.target_status
+            )
+        ) {
+
+            this.show_notification(
+                "This status transition is not allowed by the workflow."
+            );
+
+            return;
+        }
+
+
+        this.ticket_action_loading = true;
+
+        try {
+
+            const formData = new FormData();
+
+            formData.append(
+                "ticket_number",
+                this.selected_ticket.ticket_number
+            );
+
+            formData.append(
+                "status",
+                this.ticket_action.target_status
+            );
+
+            formData.append(
+                "comment",
+                this.ticket_action.comment || ""
+            );
+
+
+            /*
+             * Attachments
+             */
+            for (
+                const file
+                of this.ticket_action.files || []
+            ) {
+
+                formData.append(
+                    "Upload_files",
+                    file
+                );
+            }
+
+
+            const response = await fetch(
+                this.api_endpoints.ticketstatus,
+                {
+                    method: "POST",
+                    body: formData,
+                }
+            );
+
+
+            if (!response.ok) {
+
+                let error_message =
+                    "Unable to update ticket status.";
+
+                try {
+
+                    const error_data =
+                        await response.json();
+
+                    error_message =
+                        error_data;
+
+                } catch (e) {
+                    // Keep default message
+                }
+
+
+                throw new Error(
+                    typeof error_message === "string"
+                        ? error_message
+                        : JSON.stringify(error_message)
+                );
+            }
+
+
+            await response.json();
+
+
+            /*
+             * Close modal.
+             */
+            this.close_ticket_action_modal();
+
+
+            /*
+             * Reload latest status.
+             */
+            await this.reload_ticket_status();
+
+
+            /*
+             * Refresh vertical table.
+             */
+            this.update_triggered =
+                !this.update_triggered;
+
+
+            this.show_notification(
+                "Ticket status updated successfully."
+            );
+
+        } catch (error) {
+
+            this.show_notification(
+                error?.message ||
+                "Unable to update ticket status. Please try again."
+            );
+
+        } finally {
+
+            this.ticket_action_loading = false;
+        }
+    },
+
+
+    /*
+     * Close generic modal.
+     */
+    close_ticket_action_modal() {
+
+        if (this.ticket_action_loading) {
+            return;
+        }
+
+        this.show_ticket_action_modal = false;
+
+        this.ticket_action = {
+            label: "",
+            target_status: "",
+            comment: "",
+            files: [],
+        };
+
+
+        const fileInput =
+            document.getElementById(
+                "ticket_action_files"
+            );
+
+        if (fileInput) {
+            fileInput.value = "";
+        }
+    },
+
+
+    /*
+     * Reload ticket status.
+     */
+    async reload_ticket_status() {
+
+        try {
+
+            const response =
+                await fetch(
+                    this.api_endpoints.ticketstatus +
+                    "?ticket_number=" +
+                    this.selected_ticket?.ticket_number
+                );
+
+
+            if (!response.ok) {
+                throw new Error(
+                    "Unable to reload ticket status."
+                );
+            }
+
+
+            const data =
+                await response.json();
+
+
+            this.selected_ticket.ticket_status =
+                data;
+
+        } catch (error) {
+
+            this.show_notification(
+                "Status updated, but the latest status could not be loaded."
+            );
+        }
+    },
+
+}
+
+
+
+
+<div class="btn-group">
+
+    <button
+        v-for="action in get_ticket_level_actions(actionProps)"
+        :key="action.label + action.target_status"
+        type="button"
+        :class="action.class"
+        @click="open_ticket_level_action(action)"
+    >
+        [[ action.label ]]
+    </button>
+
+    <button
+        v-if="actionProps?.ticket_status === 'DRAFT'"
+        type="button"
+        class="btn btn-sm btn-primary"
+        @click="navigate('price_setup_request', 'edit')"
+    >
+        Edit
+    </button>
+
+</div>
