@@ -1,3 +1,29 @@
+is_update_dr_action(ticket, current_status) {
+    return (
+        ["PENDING_SETUP", "PENDING_ITCG_ANNOUNCEMENTS"].includes(current_status) &&
+        ticket?.is_annoucement &&
+        (
+            ticket?.announcement_choice === "ITCG_DRBG" ||
+            ticket?.announcement_choice === "ITCG"
+        )
+    );
+},
+
+is_update_er_action(ticket, current_status) {
+    return (
+        ["PENDING_SETUP"].includes(current_status) &&
+        ticket?.is_annoucement &&
+        (
+            ticket?.announcement_choice === "ITCG_DRBG" ||
+            ticket?.announcement_choice === "DRBG"
+        )
+    );
+},
+
+
+
+
+
 is_salesops_or_admin() {
     const roles = this.user_role
         .flatMap(role => String(role).split(","))
