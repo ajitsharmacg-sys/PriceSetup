@@ -1,3 +1,99 @@
+get_ticket_level_actions(ticket) {
+    const current_status = this.selected_ticket?.ticket_status;
+
+    if (!current_status) {
+        return [];
+    }
+
+    const is_pm_or_admin =
+        this.user_roles().includes("Price Request User-PM") ||
+        this.user_roles().includes(this.admin_role);
+
+    const is_salesops_or_admin = this.is_salesops_or_admin();
+
+    // Draft submission is a PM/Admin action
+    if (current_status === "DRAFT" && is_pm_or_admin) {
+        return [{
+            label: "Submit",
+            class: "btn btn-primary btn-sm",
+            type: "GENERIC_MODAL",
+            action_type: "CONFIRM",
+            target_status: "PENDING_SALESOPS_VALIDATION"
+        }];
+    }
+
+    // Existing SalesOps actions
+    if (!is_salesops_or_admin) {
+        return [];
+    }
+
+    const available_statuses = this.get_ticket_status_choices(ticket);
+    const actions = [];
+
+    // existing code continues here...
+
+
+
+user_roles() {
+    return (
+        Array.isArray(this.user_role)
+            ? this.user_role
+            : [this.user_role]
+    )
+    .flatMap(role => String(role).split(","))
+    .map(role => role.trim())
+    .filter(Boolean);
+},
+
+
+is_salesops_or_admin() {
+    const user_roles = this.user_roles();
+
+    return (
+        user_roles.includes("Price Request User-SalesOps") ||
+        user_roles.includes(this.admin_role)
+    );
+},
+
+
+<template #actions="actionProps">
+    <tr v-if="actionProps?.ticket_status && actionProps?.ticket_status !== 'CLOSED'">
+        <th>Price Request Level Actions</th>
+        <td>
+            <div class="btn-group">
+
+                <button
+                    v-for="action in get_ticket_level_actions(actionProps)"
+                    :key="action.label + action.target_status"
+                    type="button"
+                    :class="action.class"
+                    @click="open_ticket_level_action(action)"
+                >
+                    [[ action.label ]]
+                </button>
+
+                <button
+                    v-if="actionProps?.ticket_status === 'DRAFT'"
+                    type="button"
+                    class="btn btn-sm btn-primary"
+                    @click="navigate('price_setup_request', 'edit')"
+                >
+                    Edit
+                </button>
+
+            </div>
+        </td>
+    </tr>
+</template>
+
+
+
+
+
+
+
+
+
 Hi,
 
 Please find below my year-end summary:
