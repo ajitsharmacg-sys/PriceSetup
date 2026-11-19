@@ -1,3 +1,38 @@
+Hi,
+
+Please find below my year-end summary:
+
+**1. Significant Projects Completed This Year**
+
+- **PreDisclosure Setup Request Project** – Completed the development and implementation of the PreDisclosure Setup Request project, including the required workflow, approval process, validations, and user functionality.
+- **AIF Setup Tool Migration** – Successfully migrated the AIF Setup Tool to the new architecture.
+- **Price Setup Tool Migration** – Successfully migrated the Price Setup Tool to the new architecture, ensuring continuity of existing functionality while aligning the application with the new architecture and standards.
+
+**2. Key Achievements**
+
+- Successfully delivered the PreDisclosure Setup Request project.
+- Completed the migration of both the AIF Setup Tool and Price Setup Tool to the new architecture.
+- Worked across the complete application lifecycle, including requirement understanding, backend/API development, frontend development, workflow implementation, validations, testing, debugging, and production support.
+- Took end-to-end ownership of development activities as an individual contributor.
+- Provided timely support for production issues and implemented fixes to ensure smooth business operations.
+- Maintained a strong focus on quality, timely delivery, and meeting business requirements.
+- Received positive feedback from the client through regular interactions and project discussions, with the client being satisfied with the delivered work and support provided.
+
+**3. Certifications Completed This Year**
+
+- [Please add certification name(s), if any]
+
+**4. Appreciations Received from Customer**
+
+- No formal appreciation email or written communication was received during the year. However, the client has expressed satisfaction with the work delivered and the support provided through regular project interactions and discussions.
+
+Regards,  
+Ajit
+
+
+
+
+
 is_update_dr_action(ticket, current_status) {
     return (
         ["PENDING_SETUP", "PENDING_ITCG_ANNOUNCEMENTS"].includes(current_status) &&
