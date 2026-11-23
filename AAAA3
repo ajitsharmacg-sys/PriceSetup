@@ -1,3 +1,212 @@
+```python
+from pricerequest.models import (
+    Ticket,
+    TicketLine,
+    TicketStatus,
+    CCIPriceList,
+    ContactEmails,
+    AnnouncementMailLink,
+)
+from rest_framework import serializers
+from common.serializers import CanonUserSimpleSerializer
+
+
+class TicketLineReadSerializer(serializers.ModelSerializer):
+    meta_created_by = serializers.StringRelatedField(
+        many=False,
+        read_only=True,
+        label="Created By",
+    )
+    meta_edited_by = serializers.StringRelatedField(
+        many=False,
+        read_only=True,
+        label="Last Edited By",
+    )
+
+    class Meta:
+        model = TicketLine
+        fields = "__all__"
+        read_only_fields = [
+            "meta_created_date",
+            "meta_created_by",
+            "meta_edited_date",
+            "meta_edited_by",
+        ]
+
+
+class TicketLineWriteSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = TicketLine
+        fields = "__all__"
+        read_only_fields = [
+            "meta_created_date",
+            "meta_created_by",
+            "meta_edited_date",
+            "meta_edited_by",
+        ]
+
+
+class TicketStatusSerializer(serializers.ModelSerializer):
+    meta_created_by = serializers.StringRelatedField(
+        many=False,
+        read_only=True,
+        label="Created By",
+    )
+
+    class Meta:
+        model = TicketStatus
+        fields = "__all__"
+        read_only_fields = [
+            "meta_created_by",
+            "meta_created_date",
+        ]
+
+
+class TicketReadSerializer(serializers.ModelSerializer):
+    meta_created_by = serializers.StringRelatedField(
+        many=False,
+        label="Created By",
+    )
+
+    ticket_status = serializers.SerializerMethodField(
+        label="Status"
+    )
+
+    announcement_choice = serializers.SerializerMethodField(
+        label="Announcement Choice"
+    )
+
+    email_cc = serializers.SerializerMethodField(
+        label="Email CC"
+    )
+
+    class Meta:
+        model = Ticket
+        fields = "__all__"
+        read_only_fields = [
+            "link",
+            "meta_created_date",
+            "meta_created_by",
+            "meta_edited_date",
+            "meta_edited_by",
+            "announcement_choice",
+            "email_cc",
+        ]
+
+    def get_meta_created_by(self, obj):
+        if not obj.meta_created_by:
+            return None
+
+        return obj.meta_created_by.get_full_name()
+
+    def get_ticket_status(self, obj):
+        latest = (
+            obj.ticket_status
+            .order_by("-meta_created_date")
+            .first()
+        )
+
+        return latest.status if latest else None
+
+    def get_announcement_choice(self, obj):
+        value = obj.announcement_choice
+
+        if not value:
+            return ""
+
+        return (
+            value
+            .replace("ITCG_DRBG", "DR/ER")
+            .replace("ITCG", "DR")
+            .replace("DRBG", "ER")
+        )
+
+    def get_email_cc(self, obj):
+        if not obj.email_cc:
+            return ""
+
+        return [
+            email.strip()
+            for email in obj.email_cc.split(";")
+            if email.strip()
+        ]
+
+    def get_created_by(self, obj):
+        if not obj.meta_created_by:
+            return ""
+
+        return obj.meta_created_by.get_full_name()
+
+
+class TicketWriteSerializer(serializers.ModelSerializer):
+    meta_created_by = CanonUserSimpleSerializer(
+        many=False,
+        read_only=True,
+    )
+
+    meta_edited_by = CanonUserSimpleSerializer(
+        many=False,
+        read_only=True,
+    )
+
+    class Meta:
+        model = Ticket
+        fields = "__all__"
+        read_only_fields = [
+            "meta_created_date",
+            "meta_created_by",
+            "meta_edited_date",
+            "meta_edited_by",
+        ]
+
+
+class CCIPriceListSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CCIPriceList
+        fields = [
+            "price_list_name",
+            "mercury_code",
+            "ln_start_date_active",
+            "ln_end_date_active",
+            "mercury_code_8",
+            "record_date",
+        ]
+
+
+class ContactEmailsSerializer(serializers.ModelSerializer):
+    meta_created_by = serializers.StringRelatedField(
+        many=False,
+        read_only=True,
+        label="Created By",
+    )
+
+    class Meta:
+        model = ContactEmails
+        fields = "__all__"
+        read_only_fields = [
+            "meta_created_by",
+            "meta_created_date",
+        ]
+
+
+class AnnouncementMailLinkSerializer(serializers.ModelSerializer):
+    meta_created_by = serializers.StringRelatedField(
+        many=False,
+        read_only=True,
+        label="Created By",
+    )
+
+    class Meta:
+        model = AnnouncementMailLink
+        fields = "__all__"
+        read_only_fields = [
+            "meta_created_by",
+            "meta_created_date",
+        ]
+```
+
+
+
 from pricerequest.notification import (
     handle_announcement_emails,
     handle_pm_or_salesops_emails,
