@@ -1,3 +1,17 @@
+.then(async () => {
+    this.ticket_action_loading = false;
+    this.close_ticket_action_modal();
+
+    await this.reload_ticket_status();
+
+    this.update_triggered = !this.update_triggered;
+
+    this.show_notification("Ticket status updated successfully.");
+})
+
+
+
+
 async submit_ticket_action() {
 
     if (!this.selected_ticket?.ticket_number) {
