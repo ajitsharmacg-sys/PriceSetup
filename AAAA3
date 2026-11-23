@@ -1,13 +1,12 @@
-email_cc_display(value) {
-    if (!value) {
-        return "";
-    }
+def get_email_cc_display(self, obj):
+    if not obj.email_cc:
+        return ""
 
-    return value
-        .split(",")
-        .map(email => email.trim())
-        .join("<br>");
-}
+    return "\n".join(
+        email.strip()
+        for email in obj.email_cc.split(";")
+        if email.strip()
+    )
 
 
 
