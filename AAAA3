@@ -1,3 +1,17 @@
+email_cc_display(value) {
+    if (!value) {
+        return "";
+    }
+
+    return value
+        .split(",")
+        .map(email => email.trim())
+        .join("<br>");
+}
+
+
+
+
 .then(async () => {
     this.ticket_action_loading = false;
     this.close_ticket_action_modal();
