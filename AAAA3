@@ -1,3 +1,49 @@
+from pricerequest.notification import (
+    handle_announcement_emails,
+    handle_pm_or_salesops_emails,
+)
+
+with transaction.atomic():
+
+    # 1. Create intermediate statuses
+    for intermediate_status in get_intermediate_statuses(
+        ticket,
+        target_status
+    ):
+        TicketStatus.objects.create(
+            ticket_number=ticket,
+            status=intermediate_status,
+            comments=comments,
+            meta_created_by=self.request.user,
+        )
+
+    # 2. Create target status
+    instance = serializer.save(
+        ticket_number=ticket,
+        status=target_status,
+        comments=comments,
+        meta_created_by=self.request.user,
+    )
+
+    # 3. Send announcement notification
+    handle_announcement_emails(
+        self.request,
+        ticket,
+        target_status,
+        attachments,
+    )
+
+    # 4. Send PM / SalesOps notification
+    handle_pm_or_salesops_emails(
+        self.request,
+        ticket,
+        instance,
+        target_status,
+        comments,
+        attachments,
+    )
+
+
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
 
