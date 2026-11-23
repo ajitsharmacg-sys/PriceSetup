@@ -1,3 +1,88 @@
+async submit_ticket_action() {
+
+    if (!this.selected_ticket?.ticket_number) {
+        this.show_notification("Ticket number is missing.");
+        return;
+    }
+
+    if (!this.ticket_action?.target_status) {
+        this.show_notification("Target status is missing.");
+        return;
+    }
+
+    const allowed_statuses = this.get_ticket_status_choices(this.selected_ticket);
+
+    if (!allowed_statuses.includes(this.ticket_action.target_status)) {
+        this.show_notification(
+            "This status transition is not allowed by the workflow."
+        );
+        return;
+    }
+
+    this.ticket_action_loading = true;
+
+    let error_occured = false;
+
+    const formData = new FormData();
+
+    formData.append(
+        "ticket_number",
+        this.selected_ticket.ticket_number
+    );
+
+    formData.append(
+        "status",
+        this.ticket_action.target_status
+    );
+
+    formData.append(
+        "comment",
+        this.ticket_action.comment || ""
+    );
+
+    for (const file of this.ticket_action.files || []) {
+        formData.append("Upload_files", file);
+    }
+
+    await postFormData(this.api_endpoints.ticketstatus, formData)
+        .then(response => {
+            if (response.ok) {
+                return response.json();
+            }
+
+            return Promise.reject(response);
+        })
+        .then(async () => {
+            this.close_ticket_action_modal();
+
+            await this.reload_ticket_status();
+
+            this.update_triggered = !this.update_triggered;
+
+            this.show_notification(
+                "Ticket status updated successfully."
+            );
+        })
+        .catch(error => {
+            error_occured = true;
+
+            this.display_error(
+                error,
+                "Unable to update ticket status. Please try again or contact the app admin."
+            );
+        })
+        .finally(() => {
+            this.ticket_action_loading = false;
+        });
+
+    return error_occured;
+},
+
+
+
+
+
+
 class TicketWriteSerializer(serializers.ModelSerializer):
     meta_created_by = CanonUserSimpleSerializer(
         many=False,
