@@ -1,3 +1,42 @@
+class TicketWriteSerializer(serializers.ModelSerializer):
+    meta_created_by = CanonUserSimpleSerializer(
+        many=False,
+        read_only=True,
+    )
+    meta_edited_by = CanonUserSimpleSerializer(
+        many=False,
+        read_only=True,
+    )
+
+    class Meta:
+        model = Ticket
+        fields = "__all__"
+        read_only_fields = [
+            "meta_created_date",
+            "meta_created_by",
+            "meta_edited_date",
+            "meta_edited_by",
+        ]
+
+    def validate_email_cc(self, value):
+        if not value:
+            return value
+
+        emails = [
+            email.strip()
+            for email in value.split(";")
+            if email.strip()
+        ]
+
+        for email in emails:
+            validate_canon_email(email)
+
+        return ";".join(emails)
+
+
+
+
+
 def get_email_cc(self, obj):
     if not obj.email_cc:
         return ""
