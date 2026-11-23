@@ -1,3 +1,16 @@
+def get_email_cc(self, obj):
+    if not obj.email_cc:
+        return ""
+
+    return ", ".join(
+        email.strip()
+        for email in obj.email_cc.split(";")
+        if email.strip()
+    )
+
+
+
+
 class TicketReadSerializer(serializers.ModelSerializer):
     meta_created_by = serializers.StringRelatedField(
         many=False,
