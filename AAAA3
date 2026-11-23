@@ -1,3 +1,472 @@
+from django.contrib.auth import get_user_model
+from django.contrib.auth.models import Group
+
+from common.models import NotificationGroup
+from common.email_notifications import (
+    send_email,
+    send_email_with_attachments,
+)
+
+from pricerequest.models import (
+    AnnouncementMailLink,
+    TicketStatusChoices,
+)
+
+from pricerequest.roles import (
+    PM_USER,
+    SALES_OPS_USER,
+)
+
+from pricerequest.email_template import (
+    prepare_pm_email_body,
+    prepare_pm_reject_body,
+    prepare_salesops_reject_body,
+    prepare_pm_closed_body,
+    prepare_pm_validate_body,
+    prepare_drbg_announcement_body,
+    prepare_itcg_announcement_body,
+)
+
+
+UserModel = get_user_model()
+
+
+# ============================================================
+# RECIPIENT HELPERS
+# ============================================================
+
+def prepare_emails_from_group(group_name):
+    """
+    Prepare email recipients from a Django group.
+
+    For SalesOps, CCI.Pricing notification email is also added.
+    """
+
+    if not group_name:
+        return ""
+
+    group = Group.objects.filter(name=group_name).first()
+
+    if not group:
+        return ""
+
+    emails = list(
+        UserModel.objects
+        .filter(groups=group)
+        .exclude(email="")
+        .values_list("email", flat=True)
+    )
+
+    if group_name == SALES_OPS_USER:
+
+        notification_group = (
+            NotificationGroup.objects
+            .filter(name="CCI.Pricing")
+            .first()
+        )
+
+        if notification_group and notification_group.email:
+            emails.append(notification_group.email)
+
+    return ";".join(dict.fromkeys(emails))
+
+
+# ============================================================
+# WORKFLOW NOTIFICATION CONFIGURATION
+# ============================================================
+
+WORKFLOW_NOTIFICATION_CONFIG = {
+
+    TicketStatusChoices.PENDING_SALESOPS_VALIDATION: {
+        "recipient": SALES_OPS_USER,
+        "body": prepare_pm_email_body,
+        "subject": "New Price Setup Request Submitted.",
+    },
+
+    TicketStatusChoices.PENDING_PM_VALIDATION: {
+        "recipient": PM_USER,
+        "body": prepare_pm_validate_body,
+        "subject": "Price Setup Request to be validated by PM.",
+    },
+
+    TicketStatusChoices.PM_REJECTED: {
+        "recipient": SALES_OPS_USER,
+        "body": prepare_pm_reject_body,
+        "subject": "Price Setup Request rejected by PM.",
+    },
+
+    TicketStatusChoices.SALESOPS_REJECTED: {
+        "recipient": PM_USER,
+        "body": prepare_salesops_reject_body,
+        "subject": "Price Setup Request rejected by SalesOps.",
+    },
+
+    TicketStatusChoices.CLOSED: {
+        "recipient": SALES_OPS_USER,
+        "body": prepare_pm_closed_body,
+        "subject": "Price Setup Request closed by PM.",
+    },
+}
+
+
+# ============================================================
+# NORMAL WORKFLOW EMAIL
+# ============================================================
+
+def send_workflow_notification(
+    status,
+    request,
+    ticket,
+    comments=None,
+    attachments=None,
+):
+    """
+    Send normal workflow notification based on status.
+
+    Workflow:
+
+    PENDING_SALESOPS_VALIDATION
+        -> SalesOps
+
+    PENDING_PM_VALIDATION
+        -> PM / Ticket creator
+
+    PM_REJECTED
+        -> SalesOps
+
+    SALESOPS_REJECTED
+        -> PM / Ticket creator
+
+    CLOSED
+        -> SalesOps
+    """
+
+    attachments = attachments or []
+
+    config = WORKFLOW_NOTIFICATION_CONFIG.get(status)
+
+    if not config:
+        return
+
+    # --------------------------------------------------------
+    # Prepare email body
+    # --------------------------------------------------------
+
+    body = config["body"](
+        request,
+        ticket,
+        comments,
+    )
+
+    if not body:
+        return
+
+    # --------------------------------------------------------
+    # Prepare subject
+    # --------------------------------------------------------
+
+    subject = (
+        f"{ticket.ticket_number} - "
+        f"{config['subject']}"
+    )
+
+    # --------------------------------------------------------
+    # Prepare recipient
+    # --------------------------------------------------------
+
+    if config["recipient"] == PM_USER:
+
+        creator = getattr(
+            ticket,
+            "meta_created_by",
+            None,
+        )
+
+        if not creator:
+            creator = getattr(
+                ticket,
+                "created_by",
+                None,
+            )
+
+        to_emails = (
+            getattr(creator, "email", "")
+            if creator
+            else ""
+        )
+
+    else:
+
+        to_emails = prepare_emails_from_group(
+            config["recipient"]
+        )
+
+    # --------------------------------------------------------
+    # Prepare CC
+    # --------------------------------------------------------
+
+    cc = (
+        ticket.email_cc
+        if ticket.email_cc not in (
+            None,
+            "",
+            "null",
+        )
+        else ""
+    )
+
+    # --------------------------------------------------------
+    # Send email
+    # --------------------------------------------------------
+
+    if not to_emails:
+        return
+
+    if attachments:
+
+        send_email_with_attachments(
+            to=to_emails,
+            subject=subject,
+            body=body,
+            cc=cc,
+            attachments=attachments,
+        )
+
+    else:
+
+        send_email(
+            to=to_emails,
+            subject=subject,
+            body=body,
+            cc=cc,
+        )
+
+
+# ============================================================
+# DRBG / ITCG ANNOUNCEMENT EMAIL
+# ============================================================
+
+def _prepare_email_body_for_drbg_itcg(
+    status,
+    request,
+    ticket,
+    email_template,
+    mail_links,
+):
+    """
+    Prepare DRBG / ITCG announcement email body.
+    """
+
+    if status == TicketStatusChoices.ITCG_ANNOUNCEMENTS_COMPLETED:
+
+        return prepare_itcg_announcement_body(
+            request,
+            ticket,
+            email_template,
+            mail_links,
+        )
+
+    if status in (
+        TicketStatusChoices.PENDING_ITCG_ANNOUNCEMENTS,
+        TicketStatusChoices.DRBG_ANNOUNCEMENTS_COMPLETED,
+    ):
+
+        return prepare_drbg_announcement_body(
+            request,
+            ticket,
+            email_template,
+            mail_links,
+        )
+
+    return ""
+
+
+def _prepare_announcement_subject(
+    status,
+    ticket,
+):
+    """
+    Prepare subject for DRBG / ITCG announcement emails.
+    """
+
+    ticket_number = ticket.ticket_number
+
+    if status == TicketStatusChoices.ITCG_ANNOUNCEMENTS_COMPLETED:
+
+        return (
+            f"{ticket_number} - DR Announcements."
+        )
+
+    if status in (
+        TicketStatusChoices.PENDING_ITCG_ANNOUNCEMENTS,
+        TicketStatusChoices.DRBG_ANNOUNCEMENTS_COMPLETED,
+    ):
+
+        return (
+            f"{ticket_number} - ER Announcements."
+        )
+
+    return (
+        f"{ticket_number} - Price Setup for new request"
+    )
+
+
+def send_drbg_or_itcg_announcements(
+    to_emails,
+    status,
+    request,
+    ticket,
+    email_template,
+    cc_emails,
+    mail_links,
+    attachments=None,
+):
+    """
+    Send DRBG / ITCG announcement email.
+
+    Announcement emails are sent only when
+    attachments are available.
+    """
+
+    attachments = attachments or []
+
+    body = _prepare_email_body_for_drbg_itcg(
+        status,
+        request,
+        ticket,
+        email_template,
+        mail_links,
+    )
+
+    if not to_emails or not body:
+        return
+
+    subject = _prepare_announcement_subject(
+        status,
+        ticket,
+    )
+
+    cc = (
+        cc_emails
+        if cc_emails not in (
+            None,
+            "",
+            "null",
+        )
+        else ""
+    )
+
+    if attachments:
+
+        send_email_with_attachments(
+            to=to_emails,
+            subject=subject,
+            body=body,
+            cc=cc,
+            attachments=attachments,
+        )
+
+
+# ============================================================
+# ANNOUNCEMENT EMAIL HANDLER
+# ============================================================
+
+def handle_announcement_emails(
+    request,
+    ticket,
+    status,
+    attachments,
+):
+    """
+    Handle DRBG and ITCG announcement emails.
+    """
+
+    post = request.POST
+
+    # --------------------------------------------------------
+    # DRBG
+    # --------------------------------------------------------
+
+    if status in (
+        TicketStatusChoices.PENDING_ITCG_ANNOUNCEMENTS,
+        TicketStatusChoices.DRBG_ANNOUNCEMENTS_COMPLETED,
+    ):
+
+        links = AnnouncementMailLink.objects.filter(
+            user_type="DRBG"
+        )
+
+        send_drbg_or_itcg_announcements(
+            post.get("drbg_to_emails"),
+            status,
+            request,
+            ticket,
+            post.get("drbg_email_template"),
+            post.get("drbg_cc_emails"),
+            links,
+            attachments,
+        )
+
+    # --------------------------------------------------------
+    # ITCG
+    # --------------------------------------------------------
+
+    if status == TicketStatusChoices.ITCG_ANNOUNCEMENTS_COMPLETED:
+
+        links = AnnouncementMailLink.objects.filter(
+            user_type="ITCG"
+        )
+
+        send_drbg_or_itcg_announcements(
+            post.get("itcg_to_emails"),
+            status,
+            request,
+            ticket,
+            post.get("itcg_email_template"),
+            post.get("itcg_cc_emails"),
+            links,
+            attachments,
+        )
+
+
+# ============================================================
+# NORMAL WORKFLOW EMAIL HANDLER
+# ============================================================
+
+def handle_pm_or_salesops_emails(
+    request,
+    ticket,
+    status_record,
+    status,
+    comments,
+    attachments,
+):
+    """
+    Handle normal workflow email based only on status.
+
+    This replaces the previous multiple if-statements
+    with one status-driven notification configuration.
+    """
+
+    send_workflow_notification(
+        status=status,
+        request=request,
+        ticket=ticket,
+        comments=comments,
+        attachments=attachments,
+    )
+
+
+
+
+
+
+
+
+
+
+
+
 get_ticket_level_actions(ticket) {
     const current_status = this.selected_ticket?.ticket_status;
 
